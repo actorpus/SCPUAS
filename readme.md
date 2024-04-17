@@ -9,14 +9,23 @@ actually assembling the assembly into a token stream allows for adding extra fil
 
 ### Notes from the original assembler:
 - The instruction jumpu was removed
+- Labels are now called roots, this is because they will (eventually) also be used for OO style data classes
 - Numbers can now be represented in decimal, binary, hexadecimal or octal (why not (: )
+- data can be saved with .data, this accepts all forms of numbers and references to roots
+- .chr saves the ascii value of a character
+- .str saves the ascii values of a string (not terminated)
+- .strn saves the ascii values of a string (null terminated)
+- -a flag was replaces with -A flag
+- -o flag still works or use -a:d:m:f: for specific output types
+- `#` and `#/ ... /#` are used for comments
+- `\n` ` ` and `,` are used as delimiters, they can be escaped with `\ ` for naming. (automatically escaped in comments)
 
 ## Todo:
-- [ ] Add support for comments (# and #/ ... /#)
-- [ ] Reimplement entire original assembler
-- [ ] ^ Add in option to use start address location (-A)
-- [ ] ^ Patch in -o option to use all outputs (backwards compatibility)
-- [ ] ^ Add in .data (will probably include .int .char .string ...)
+- [x] Add support for comments (# and #/ ... /#)
+- [x] Reimplement entire original assembler
+- [x] ^ Add in option to use start address location (-A)
+- [x] ^ Patch in -o option to use all outputs (backwards compatibility)
+- [x] ^ Add in .data (will probably include .int .char .str ...)
 
 - [ ] Add file linking / importing
 - [ ] Add an emulator 
