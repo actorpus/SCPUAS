@@ -7,7 +7,6 @@ import os
 import numpy as np
 
 
-
 class CPU:
     def __init__(self):
         self.__memory = np.zeros(4096, dtype=np.uint16)
@@ -23,11 +22,9 @@ class CPU:
     def _wipe_flags(self):
         self.__flag_carry = False
 
-
     def load_memory(self, at, memory):
         for i, c in enumerate(memory):
             self.__memory[i + at] = int(c, 16)
-
 
     def _get_mem(self, at):
         if at == 0xFFF:
@@ -62,7 +59,6 @@ class CPU:
 
         self.__registers[dest] += value
 
-
     def _SUB(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
         value = ir07ir04 << 4 | ir03ir00
@@ -79,17 +75,24 @@ class CPU:
         self._wipe_flags()
 
         self.__registers[dest] &= value
+
     def _LOAD(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        value = ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        value = (
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        )
         self.__registers[0] = self.__memory[value]
 
     def _STORE(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        value = ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        value = (
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        )
 
         self.__memory[value] = self.__registers[0]
 
     def _ADDM(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        value = ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        value = (
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        )
 
         self._wipe_flags()
         self.__flag_carry = self.__registers[0] + value > 0xFFFF
@@ -97,7 +100,9 @@ class CPU:
         self.__registers[0] += value
 
     def _SUBM(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        value = ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        value = (
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        )
 
         self._wipe_flags()
         self.__flag_carry = self.__registers[0] < value
@@ -105,24 +110,32 @@ class CPU:
         self.__registers[0] -= value
 
     def _JUMPU(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        value = ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        value = (
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        )
 
         self.__pc = value
 
     def _JUMPZ(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        value = ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        value = (
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        )
 
         if self.__registers[0] == 0:
             self.__pc = value
 
     def _JUMPNZ(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        value = ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        value = (
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        )
 
         if self.__registers != 0:
             self.__pc = value
 
     def _JUMPC(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        value = ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        value = (
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        )
 
         if self.__flag_carry:
             self.__pc = value
@@ -131,7 +144,9 @@ class CPU:
         self.__stack[self.__stack_pointer] = self.__pc
         self.__stack_pointer += 1
 
-        value = ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        value = (
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+        )
 
         self.__pc = value
 
@@ -140,7 +155,6 @@ class CPU:
     def _RET(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         self.__stack_pointer -= 1
         self.__pc = self.__stack[self.__stack_pointer]
-
 
     # def _MOVER(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
     # def _LOADR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
@@ -202,7 +216,9 @@ class CPU:
         print(f"Fetched: {self.__ir} at {self.__pc - 1}")
 
     def _decode(self):
-        self._current_instruction_rel_func = self._decode_instruction_rel_func(self.__ir)
+        self._current_instruction_rel_func = self._decode_instruction_rel_func(
+            self.__ir
+        )
 
         print(f"Decoded: {self._current_instruction_rel_func.__name__}")
 
@@ -222,9 +238,9 @@ class CPU:
         import time
 
         print(f"Registers: {self.__registers}")
-                # print(f"Memory: {self.__memory}")
-                # print(f"PC: {self.__pc}")
-                # print(f"IR: {self.__ir}")
+        # print(f"Memory: {self.__memory}")
+        # print(f"PC: {self.__pc}")
+        # print(f"IR: {self.__ir}")
 
         i, t = 0, time.time()
 
@@ -249,7 +265,7 @@ class CPU:
             time.sleep(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # os.system(r".\.venv\Scripts\python.exe .\assembler.py -i .\test2.asm -a .\tmp")
     # os.remove(r".\tmp_high_byte.asc")
     # os.remove(r".\tmp_low_byte.asc")
@@ -259,7 +275,6 @@ if __name__ == '__main__':
 
     memory_start, *code = code
     memory_start = int(memory_start, 16)
-
 
     cpu = CPU()
     cpu.load_memory(memory_start, code)

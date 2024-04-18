@@ -1,0 +1,12 @@
+-language standard
+-language ./sprite.py
+
+start:
+    .sprite "
+      # # #
+      # . #
+      # . #
+      # . #
+      # # #
+    "
+_:,.data _

@@ -1,0 +1,15 @@
+-language standard
+
+start:
+
+-alias boop 0xFC
+
+{{ (tempname := $.randomname$) }}:
+    jump $boop$
+    .strn "{{ tempname }}"
+
+block:
+{{!
+for _ in range(5):
+    print(f"jump {_}")
+!}}

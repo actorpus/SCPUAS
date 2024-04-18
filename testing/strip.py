@@ -2,7 +2,6 @@
 Hours crying: 4
 """
 
-
 with open("code.asm") as file:
     code = file.read()
 

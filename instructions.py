@@ -4,9 +4,16 @@ jump to line 100 to see the instructions, the instructions are
 defined as classes with the name of the instruction, the
 arguments are defined as class variables.
 
-A class decorator '@instruction' wraps the compile method for
+A class decorator '@instruction()' wraps the compile method for
 error handling and sets up a few other variables the assembler
 needs.
+
+IMPORTANT:
+The length of an instructions compilation may not change depending
+on any reference arguments. other arguments can change the length
+but as the final reference is not known until the length is calculated
+it is not possible to change the length of the instruction('s output)
+based on reference arguments.
 """
 
 import logging
@@ -23,77 +30,94 @@ VALUE = 8
 UNCHECKED = 16
 
 
-class Instruction():
+class Instruction:
     # These are set up by the wrapper
     arguments: OrderedDict
     required_arguments: int
     total_arguments: int
 
-    def asm_compile(self, *args) -> List[str]:
+    @staticmethod
+    def asm_compile(*args) -> List[str]:
         pass
 
 
 instructions: dict[str, Instruction] = {}
 
-def instruction(_class):
-    args = set(_class.__dict__.keys())
-    args = args - {'__doc__', 'compile', '__module__'}
-    args_by_func = inspect.getfullargspec(_class.compile).args
 
-    if set(args) != set(args_by_func):
-        logging.critical(f"Error parsing arguments for '{_class.__name__}', expected '{', '.join(args_by_func)}', got '{', '.join(args)}'")
-        sys.exit(-1)
+def instruction(insts_ref: Optional[dict[str, Instruction]] = None):
+    if insts_ref is None:
+        insts_ref = instructions
 
-    args = list(args)
-    args.sort(key=lambda x: args_by_func.index(x))
+    def wrapper(_class):
+        args = set(_class.__dict__.keys())
+        args = args - {"__doc__", "compile", "__module__"}
+        args_by_func = inspect.getfullargspec(_class.compile).args
 
-    _class.arguments = OrderedDict()
+        if set(args) != set(args_by_func):
+            logging.critical(
+                f"Error parsing arguments for '{_class.__name__}', expected '{', '.join(args_by_func)}', got '{', '.join(args)}'"
+            )
+            sys.exit(-1)
 
-    for instruction in args:
-        _class.arguments[instruction] = _class.__dict__[instruction]
+        args = list(args)
+        args.sort(key=lambda x: args_by_func.index(x))
 
-    name = _class.__name__[1:]
-    if name.startswith('_'):
-        name = '.' + name[1:]
+        _class.arguments = OrderedDict()
 
-    if name in instructions:
-        logging.critical(f"Error parsing instruction '{name}', instruction already exists")
-        sys.exit(-1)
+        for instruction in args:
+            _class.arguments[instruction] = _class.__dict__[instruction]
 
-    instructions[name] = _class
+        name = _class.__name__[1:]
+        if name.startswith("_"):
+            name = "." + name[1:]
 
-    # wrap the compile method to add the asm_compile method, checking for errors
-    def _compile(*args) -> List[str]:
-        value: Union[str, List[str]] = _class.compile(*args)
+        if name in insts_ref:
+            logging.critical(
+                f"Error parsing instruction '{name}', instruction already exists"
+            )
+            sys.exit(-1)
 
-        if type(value) == str:
-            if len(value) != 4:
-                logging.critical(f"Error parsing compilation of '{_class.__name__}', expected 4 characters, got '{value}'")
-                sys.exit(-1)
+        insts_ref[name] = _class
 
-            value = value.upper()
+        # wrap the compile method to add the asm_compile method, checking for errors
+        def _compile(*args) -> List[str]:
+            value: Union[str, List[str]] = _class.compile(*args)
 
-            return [value]
-
-        elif type(value) == list:
-            for v in value:
-                if len(v) != 4:
-                    logging.critical(f"Error parsing compilation of '{_class.__name__}', expected 4 characters, got '{v}' in '{', '.join(value)}'")
+            if type(value) == str:
+                if len(value) != 4:
+                    logging.critical(
+                        f"Error parsing compilation of '{_class.__name__}', expected 4 characters, got '{value}'"
+                    )
                     sys.exit(-1)
 
-            return [v.upper() for v in value]
+                value = value.upper()
 
-    _class.asm_compile = _compile
+                return [value]
 
-    _class.total_arguments = len(_class.arguments)
-    _class.required_arguments = len([arg for arg in _class.arguments if _class.arguments[arg] & REQUIRED])
+            elif type(value) == list:
+                for v in value:
+                    if len(v) != 4:
+                        logging.critical(
+                            f"Error parsing compilation of '{_class.__name__}', expected 4 characters, got '{v}' in '{', '.join(value)}'"
+                        )
+                        sys.exit(-1)
 
-    return _class
+                return [v.upper() for v in value]
 
+        _class.asm_compile = _compile
+
+        _class.total_arguments = len(_class.arguments)
+        _class.required_arguments = len(
+            [arg for arg in _class.arguments if _class.arguments[arg] & REQUIRED]
+        )
+
+        return _class
+
+    return wrapper
 
 
 # add the folowing class as a instruction
-@instruction
+@instruction()
 
 # the name of the class is the name of the instruction
 # (the _ is removed to avoid conflicts with python keywords)
@@ -114,14 +138,14 @@ class _move(Instruction):
     def compile(rd, kk=0):
         reg = rd << 2
 
-        return f'0{reg:1x}{kk:02x}'
+        return f"0{reg:1x}{kk:02x}"
 
     # 'move RB 0x33' would get tokenized into:
     # '_move(1, 51)' then compiled into
     # '0433'
 
 
-@instruction
+@instruction()
 class _add(Instruction):
     rd = REGISTER | REQUIRED
     kk = VALUE
@@ -130,10 +154,10 @@ class _add(Instruction):
     def compile(rd, kk=0):
         reg = rd << 2
 
-        return f'1{reg:1x}{kk:02x}'
+        return f"1{reg:1x}{kk:02x}"
 
 
-@instruction
+@instruction()
 class _sub(Instruction):
     rd = REGISTER | REQUIRED
     kk = VALUE
@@ -142,10 +166,10 @@ class _sub(Instruction):
     def compile(rd, kk=0):
         reg = rd << 2
 
-        return f'2{reg:1x}{kk:02x}'
+        return f"2{reg:1x}{kk:02x}"
 
 
-@instruction
+@instruction()
 class _and(Instruction):
     rd = REGISTER | REQUIRED
     kk = VALUE
@@ -154,91 +178,91 @@ class _and(Instruction):
     def compile(rd, kk=0):
         reg = rd << 2
 
-        return f'3{reg:1x}{kk:02x}'
+        return f"3{reg:1x}{kk:02x}"
 
 
-@instruction
+@instruction()
 class _load(Instruction):
     aa = VALUE
 
     @staticmethod
     def compile(aa=0):
-        return f'4{aa:03x}'
+        return f"4{aa:03x}"
 
 
-@instruction
+@instruction()
 class _store(Instruction):
     aa = VALUE
 
     @staticmethod
     def compile(aa=0):
-        return f'5{aa:03x}'
+        return f"5{aa:03x}"
 
 
-@instruction
+@instruction()
 class _addm(Instruction):
     aa = VALUE
 
     @staticmethod
     def compile(aa=0):
-        return f'6{aa:03x}'
+        return f"6{aa:03x}"
 
 
-@instruction
+@instruction()
 class _subm(Instruction):
     aa = VALUE
 
     @staticmethod
     def compile(aa=0):
-        return f'7{aa:03x}'
+        return f"7{aa:03x}"
 
 
-@instruction
+@instruction()
 class _jump(Instruction):
     aa = VALUE
 
     @staticmethod
     def compile(aa=0):
-        return f'8{aa:03x}'
+        return f"8{aa:03x}"
 
 
-@instruction
+@instruction()
 class _jumpz(Instruction):
     aa = VALUE
 
     @staticmethod
     def compile(aa=0):
-        return f'9{aa:03x}'
+        return f"9{aa:03x}"
 
 
-@instruction
+@instruction()
 class _jumpnz(Instruction):
     aa = VALUE
 
     @staticmethod
     def compile(aa=0):
-        return f'A{aa:03x}'
+        return f"A{aa:03x}"
 
 
-@instruction
+@instruction()
 class _jumpc(Instruction):
     aa = VALUE
 
     @staticmethod
     def compile(aa=0):
-        return f'B{aa:03x}'
+        return f"B{aa:03x}"
 
 
-@instruction
+@instruction()
 class _call(Instruction):
     aa = VALUE
 
     @staticmethod
     def compile(aa=0):
-        return f'C{aa:03x}'
+        return f"C{aa:03x}"
 
 
-@instruction
+@instruction()
 class _or(Instruction):
     rd = REGISTER | REQUIRED
     kk = VALUE
@@ -247,20 +271,21 @@ class _or(Instruction):
     def compile(rd, kk=0):
         reg = rd << 2
 
-        return f'D{reg:1x}{kk:02x}'
+        return f"D{reg:1x}{kk:02x}"
 
 
 # XOP1 f'Exxx'
 
-@instruction
+
+@instruction()
 class _ret(Instruction):
     @staticmethod
     def compile():
         # first in type FxxN
-        return 'F000'
+        return "F000"
 
 
-@instruction
+@instruction()
 class _mover(Instruction):
     rd = REGISTER | REQUIRED
     rs = REGISTER
@@ -269,10 +294,10 @@ class _mover(Instruction):
     def compile(rd, rs=0):
         value = rd << 2 | rs
 
-        return f'F{value:1x}01'
+        return f"F{value:1x}01"
 
 
-@instruction
+@instruction()
 class _loadr(Instruction):
     rd = REGISTER | REQUIRED
     rs = REGISTER
@@ -281,10 +306,10 @@ class _loadr(Instruction):
     def compile(rd, rs=0):
         value = rd << 2 | rs
 
-        return f'F{value:1x}02'
+        return f"F{value:1x}02"
 
 
-@instruction
+@instruction()
 class _storer(Instruction):
     rd = REGISTER | REQUIRED
     rs = REGISTER
@@ -293,10 +318,10 @@ class _storer(Instruction):
     def compile(rd, rs=0):
         value = rd << 2 | rs
 
-        return f'F{value:1x}03'
+        return f"F{value:1x}03"
 
 
-@instruction
+@instruction()
 class _rol(Instruction):
     rsd = REGISTER | REQUIRED
 
@@ -304,10 +329,10 @@ class _rol(Instruction):
     def compile(rsd):
         value = rsd << 2
 
-        return f'F{value:1x}04'
+        return f"F{value:1x}04"
 
 
-@instruction
+@instruction()
 class _ror(Instruction):
     rsd = REGISTER | REQUIRED
 
@@ -315,10 +340,10 @@ class _ror(Instruction):
     def compile(rsd):
         value = rsd << 2
 
-        return f'F{value:1x}05'
+        return f"F{value:1x}05"
 
 
-@instruction
+@instruction()
 class _addr(Instruction):
     rd = REGISTER | REQUIRED
     rs = REGISTER
@@ -327,10 +352,10 @@ class _addr(Instruction):
     def compile(rd, rs=0):
         value = rd << 2 | rs
 
-        return f'F{value:1x}06'
+        return f"F{value:1x}06"
 
 
-@instruction
+@instruction()
 class _subr(Instruction):
     rd = REGISTER | REQUIRED
     rs = REGISTER
@@ -339,10 +364,10 @@ class _subr(Instruction):
     def compile(rd, rs=0):
         value = rd << 2 | rs
 
-        return f'F{value:1x}07'
+        return f"F{value:1x}07"
 
 
-@instruction
+@instruction()
 class _andr(Instruction):
     rd = REGISTER | REQUIRED
     rs = REGISTER
@@ -351,10 +376,10 @@ class _andr(Instruction):
     def compile(rd, rs=0):
         value = rd << 2 | rs
 
-        return f'F{value:1x}08'
+        return f"F{value:1x}08"
 
 
-@instruction
+@instruction()
 class _orr(Instruction):
     rd = REGISTER | REQUIRED
     rs = REGISTER
@@ -363,10 +388,10 @@ class _orr(Instruction):
     def compile(rd, rs=0):
         value = rd << 2 | rs
 
-        return f'F{value:1x}09'
+        return f"F{value:1x}09"
 
 
-@instruction
+@instruction()
 class _xorr(Instruction):
     rd = REGISTER | REQUIRED
     rs = REGISTER
@@ -375,10 +400,10 @@ class _xorr(Instruction):
     def compile(rd, rs=0):
         value = rd << 2 | rs
 
-        return f'F{value:1x}0A'
+        return f"F{value:1x}0A"
 
 
-@instruction
+@instruction()
 class _aslr(Instruction):
     rd = REGISTER | REQUIRED
     rs = REGISTER
@@ -387,7 +412,7 @@ class _aslr(Instruction):
     def compile(rd, rs=0):
         value = rd << 2 | rs
 
-        return f'F{value:1x}0B'
+        return f"F{value:1x}0B"
 
 
 # XOP2 f'FxxC'
@@ -398,74 +423,83 @@ class _aslr(Instruction):
 
 # ASSEMBLER INSTRUCTIONS
 
-@instruction
+
+@instruction()
 # __ will be replaced with '.'
 class __data(Instruction):
     data = UNCHECKED
 
     @staticmethod
     def compile(data: int = 0):
-        return f'{data:04x}'
+        return f"{data:04x}"
 
 
-@instruction
+@instruction()
 class __chr(Instruction):
     data = UNCHECKED | REQUIRED
 
     @staticmethod
     def compile(data: str):
         if type(data) != str or len(data) != 1:
-            logging.critical(f"Error compiling '.chr', only one character is allowed, got '{data}'")
+            logging.critical(
+                f"Error compiling '.chr', only one character is allowed, got '{data}'"
+            )
             sys.exit(-1)
 
         value = ord(data)
 
-        return f'{value:04x}'
+        return f"{value:04x}"
 
 
-@instruction
+@instruction()
 class __str(Instruction):
     data = UNCHECKED | REQUIRED
 
     @staticmethod
     def compile(data: str):
         if type(data) != str:
-            logging.critical(f"Error compiling '.str', only strings are allowed, got '{data}'")
+            logging.critical(
+                f"Error compiling '.str', only strings are allowed, got '{data}'"
+            )
             sys.exit(-1)
 
-        if data.startswith('\"'): data = data[1:]
-        if data.endswith('\"'): data = data[:-1]
+        if data.startswith('"'):
+            data = data[1:]
+        if data.endswith('"'):
+            data = data[:-1]
 
-        return [f'{ord(char):04x}' for char in data]
+        return [f"{ord(char):04x}" for char in data]
 
 
-@instruction
+@instruction()
 class __strn(Instruction):
     data = UNCHECKED | REQUIRED
 
     @staticmethod
     def compile(data: str):
         if type(data) != str:
-            logging.critical(f"Error compiling '.strn', only strings are allowed, got '{data}'")
+            logging.critical(
+                f"Error compiling '.strn', only strings are allowed, got '{data}'"
+            )
             sys.exit(-1)
 
-        if data.startswith('\"'): data = data[1:]
-        if data.endswith('\"'): data = data[:-1]
+        if data.startswith('"'):
+            data = data[1:]
+        if data.endswith('"'):
+            data = data[:-1]
 
-        return [f'{ord(char):04x}' for char in data] + ['0000']
+        return [f"{ord(char):04x}" for char in data] + ["0000"]
 
 
 # sets up the default aliases
-aliases = {
-    'jumpu': 'jump'
-}
+aliases = {".randomname": '__import__("random").randbytes(16).hex()'}
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from pprint import pprint
 
     pprint(instructions)
-    print(instructions['move'].arguments)
-    print(instructions['rol'].asm_compile(3))
-    print(instructions['.chr'].asm_compile('A'))
-    print(instructions['.strn'].asm_compile('\"Hello, World! \" \"'))
+    print(instructions["move"].arguments)
+    print(instructions["rol"].asm_compile(3))
+    print(instructions[".chr"].asm_compile("A"))
+    print(instructions[".strn"].asm_compile('"Hello, World! " "'))

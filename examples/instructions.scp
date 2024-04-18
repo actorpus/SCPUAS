@@ -3,7 +3,9 @@ Assembler test script
 Note: this will not assemble with the old assembler
 /#
 
-.data 0
+-language standard
+
+# .data 0
 # this should add it to the start of the 'start' scope.
 
 -alias portA 0xFC
@@ -12,20 +14,20 @@ Note: this will not assemble with the old assembler
 # useful for constants you dont want to take memory
 
 start:
-    load portA
+    load $portA$
     # 0xFC is the memory location for port A
     and RA 0b00000001 # mask the bit for the button
     jumpz fire
 reset:
-    move RA portA
+    move RA $portA$
     store 0b11111100
-    jumpu start
+    jump start
 fire:
-    move RA portA
+    move RA $portA$
     store 0b11111100
     jump start
 
-.data 0x3333 1
+# .data 0x3333 1
 # the 1 will be ignored
 
 .data reset
