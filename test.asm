@@ -1,22 +1,27 @@
 #/
-Manual control script
+Assembler test script
 Note: this will not assemble with the old assembler
 /#
 
 .data 0
 # this should add it to the start of the 'start' scope.
 
+-alias portA 0xFC
+# Aliases are basic macros that are replaced at assembly
+# They cannot be modified (they can be redefined) so are
+# useful for constants you dont want to take memory
+
 start:
-    load 0xFC
+    load portA
     # 0xFC is the memory location for port A
-    and  0b00000001 # mask the bit for the button
+    and RA 0b00000001 # mask the bit for the button
     jumpz fire
 reset:
-    move  0xFC
+    move RA portA
     store 0b11111100
-    jump start
+    jumpu start
 fire:
-    move  0xFC
+    move RA portA
     store 0b11111100
     jump start
 
@@ -35,7 +40,7 @@ fire:
 
 se\ lf:
     # Funny property caused in the tokeniser
-    # you can escape the space in the label with a backslash
+    # you can escape the space in the root with a backslash
 
     .data se\ lf
 
