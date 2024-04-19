@@ -5,24 +5,48 @@
 # http://simplecpudesign.com/
 
 import getopt
+import random
 from io import StringIO
 from typing import *
 import logging
 import sys
 import pathlib
-from instructions import (
+from scp_instruction import (
     REQUIRED,
     REGISTER,
     REFERENCE,
     VALUE,
     UNCHECKED,
     Instruction,
-    aliases,
 )
+from pprint import pprint
+
+
+__doc__ = """
+Usage:
+
+standard use case 
+assembler.py -i <input scp file>
+             -A <address offset>
+             -a <output asc files (includes high and low) (no ext)>
+             -d <output dat file (no ext)>
+             -m <output mem file (no ext)>
+             -f <output mif file (no ext)>
+
+'compile' into asm file
+assembler.py -i <input scp file>
+             -D <output asm file (no ext)>
+"""
+
 
 Instructions: dict[str, Instruction] = {}
 
 logging.basicConfig(level=logging.DEBUG)
+_log = logging.getLogger("SCPUAS")
+
+
+# sets up the default aliases
+aliases = {".randomname": '__import__("random").randbytes(16).hex()'}
 
 
 class RegisterRef:
@@ -34,6 +58,9 @@ class RegisterRef:
 
     def __repr__(self):
         return f"Register({self.value})"
+
+    def as_arg(self):
+        return f"R{chr(self.value + 65)}"
 
 
 def read_token(
@@ -219,8 +246,9 @@ def replace_code_snippet_eval(token: str, start_c="{{", end_c="}}", _exec=False)
     return token
 
 
-def tokenize(stream, project_path: pathlib.Path):
+def tokenize(stream, project_path: pathlib.Path) -> tuple[TokensStruct, list[pathlib.Path]]:
     roots: TokensStruct = []
+    imported = []
 
     current_root = None
     current_root_index = -1
@@ -251,21 +279,22 @@ def tokenize(stream, project_path: pathlib.Path):
             location = read_token(stream)
 
             if location == "standard":
-                logging.info("Loading standard language file.")
+                _log.info("Loading standard language file.")
 
-                from instructions import instructions as default_instructions
+                from standard_instructions import instructions as default_instructions
 
                 Instructions.update(default_instructions)
+                imported.append(pathlib.Path("standard_instructions.py"))
 
             else:
-                logging.info(f"Loading language file at {location}.")
+                _log.info(f"Loading language file at {location}.")
 
                 path = pathlib.Path(location)
                 if not path.is_absolute():
                     path = project_path / path
 
                 if not path.exists():
-                    logging.critical(
+                    _log.critical(
                         f"Could not find language file at {path}. Exiting."
                     )
                     sys.exit(-1)
@@ -283,6 +312,7 @@ def tokenize(stream, project_path: pathlib.Path):
                 extra_instructions = _()
 
                 Instructions.update(extra_instructions)
+                imported.append(pathlib.Path(path))
 
             continue
 
@@ -293,11 +323,11 @@ def tokenize(stream, project_path: pathlib.Path):
         if token.endswith(":"):
             # roots cannot be named the same as instructions
             if token[:-1] in Instructions:
-                logging.critical(f"Found instruction '{token[:-1]}' as root. Exiting.")
+                _log.critical(f"Found instruction '{token[:-1]}' as root. Exiting.")
                 sys.exit(-1)
 
             if token[:-1] in [list(root.keys())[0] for root in roots]:
-                logging.error(
+                _log.error(
                     f"Root '{token[:-1]}' already exists. Instructions will be amended to previous root."
                 )
                 current_root = token[:-1]
@@ -315,7 +345,7 @@ def tokenize(stream, project_path: pathlib.Path):
 
         # Insert 'start' root if no roots are found
         if not roots:
-            logging.warning("Instruction found without a root. inserting 'start' root.")
+            _log.warning("Instruction found without a root. inserting 'start' root.")
             roots.append({"start": []})
             current_root = "start"
 
@@ -327,7 +357,7 @@ def tokenize(stream, project_path: pathlib.Path):
                     and len(roots[current_root_index][current_root][-1]["arguments"])
                     < Instructions[token].required_arguments
             ):
-                logging.critical(
+                _log.critical(
                     f"Found token '{token}' before instruction '{_last_instruction}' was fulfilled."
                 )
                 sys.exit(-1)
@@ -338,7 +368,7 @@ def tokenize(stream, project_path: pathlib.Path):
             _last_instruction = token
 
         elif len(roots[current_root_index][current_root]) == 0:
-            logging.error(f"Found token '{token}' that cannot be handled. Ignoring.")
+            _log.error(f"Found token '{token}' that cannot be handled. Ignoring.")
             sys.exit()
 
         # if the last instruction has unfulfilled arguments
@@ -354,9 +384,9 @@ def tokenize(stream, project_path: pathlib.Path):
             roots[current_root_index][current_root][-1]["arguments"].append(value)
 
         else:
-            logging.error(f"Found token '{token}' that cannot be handled. Ignoring.")
+            _log.error(f"Found token '{token}' that cannot be handled. Ignoring.")
 
-    return roots
+    return roots, imported
 
 
 def root_afermer(tokens: TokensStruct) -> list[InstructionStrut]:
@@ -366,7 +396,7 @@ def root_afermer(tokens: TokensStruct) -> list[InstructionStrut]:
     """
 
     if "start" not in tokens[0]:
-        logging.critical("No 'start' root found. Exiting.")
+        _log.critical("No 'start' root found. Exiting.")
         sys.exit(-1)
 
     stream: list[InstructionStrut] = []
@@ -391,11 +421,16 @@ def linker(stream: list[InstructionStrut]) -> list[InstructionStrut]:
     return stream
 
 
-def type_verifier(stream: list[InstructionStrut]) -> list[InstructionStrut]:
+def type_verifier(stream: list[InstructionStrut], *, ret_roots=False) -> list[InstructionStrut]:
     """
     Verify that all references are valid.
     Verify all arguments are correct types (converting where necessary).
     """
+
+    # flag for decompiling to leave in unconverted types
+    if ret_roots:
+        for instruction in stream:
+            instruction['original'] = instruction['arguments']
 
     roots = []
 
@@ -416,7 +451,7 @@ def type_verifier(stream: list[InstructionStrut]) -> list[InstructionStrut]:
                 instruction_flags = list(instruction.arguments.values())[i]
 
                 if instruction_flags & REQUIRED and i >= len(arguments):
-                    logging.critical(
+                    _log.critical(
                         f"Instruction '{name}' requires at least {instruction.required_arguments} arguments. Exiting."
                     )
                     sys.exit(-1)
@@ -427,7 +462,7 @@ def type_verifier(stream: list[InstructionStrut]) -> list[InstructionStrut]:
                 if instruction_flags & REGISTER and not isinstance(
                         arguments[i], RegisterRef
                 ):
-                    logging.critical(
+                    _log.critical(
                         f"Argument {i} ({arguments[i]}) of instruction '{name}' must be a register reference. Exiting."
                     )
                     sys.exit(-1)
@@ -437,7 +472,7 @@ def type_verifier(stream: list[InstructionStrut]) -> list[InstructionStrut]:
                         and isinstance(arguments[i], str)
                         and arguments[i] not in roots
                 ):
-                    logging.critical(
+                    _log.critical(
                         f"Argument {i} ({arguments[i]}) of instruction '{name}' must be a valid reference. Exiting."
                     )
                     sys.exit(-1)
@@ -447,7 +482,7 @@ def type_verifier(stream: list[InstructionStrut]) -> list[InstructionStrut]:
                         and isinstance(arguments[i], str)
                         and arguments[i] not in roots
                 ):
-                    logging.critical(
+                    _log.critical(
                         f"Argument {i} ({arguments[i]}) of instruction '{name}' must be a valid token. Exiting."
                     )
                     sys.exit(-1)
@@ -455,7 +490,7 @@ def type_verifier(stream: list[InstructionStrut]) -> list[InstructionStrut]:
     return stream
 
 
-def compiler(stream: list[InstructionStrut], memory_offset: int) -> list[str]:
+def compiler(stream: list[InstructionStrut], memory_offset: int, *, ret_roots=False) -> Union[list[str], tuple[list[str], dict[str, int], list[InstructionStrut]]]:
     roots = [inst["ref"] for inst in stream if "ref" in inst]
 
     # final check on input types and convert registers to values
@@ -470,7 +505,7 @@ def compiler(stream: list[InstructionStrut], memory_offset: int) -> list[str]:
                     args[i] = args[i].value
                     continue
                 if isinstance(args[i], int): continue
-                logging.critical(f"Unknown argument type '{args[i]}'. Exiting.")
+                _log.critical(f"Unknown argument type '{args[i]}'. Exiting.")
                 sys.exit(-1)
 
     for instruction in stream:
@@ -485,14 +520,13 @@ def compiler(stream: list[InstructionStrut], memory_offset: int) -> list[str]:
             for i, arg in enumerate(temp_args)
         ]
 
-        instruction["dummy"] = Instructions[instruction["name"]].asm_compile(*temp_args)
+        instruction["dummy"] = Instructions[instruction["name"]].compile(*temp_args)
 
     pointer = memory_offset
     roots = {}
 
     for instruction in stream:
         if "ref" in instruction:
-
             roots[instruction["ref"]] = pointer
 
         pointer += len(instruction["dummy"])
@@ -511,17 +545,19 @@ def compiler(stream: list[InstructionStrut], memory_offset: int) -> list[str]:
             for i, arg in enumerate(temp_args)
         ]
 
-        instruction['compiled'] = Instructions[instruction['name']].asm_compile(*temp_args)
+        instruction['compiled'] = Instructions[instruction['name']].compile(*temp_args)
 
         if len(instruction['compiled']) != len(instruction['dummy']):
-            logging.critical(f"Instruction '{instruction['name']}' compiled to incorrect length. Exiting.")
+            _log.critical(f"Instruction '{instruction['name']}' compiled to incorrect length. Exiting.")
             sys.exit(-1)
 
         pointer += len(instruction['compiled'])
         output += instruction['compiled']
 
-    return output
+    if ret_roots:
+        return output, roots, stream
 
+    return output
 
 
 """
@@ -537,6 +573,7 @@ def assemble_asc(stream: list[str], memory_offset: int) -> str:
 
 cast_hex_2_big = lambda x: f"{min(max(x, 0x00), 0xff):<02x}"
 cast_hex_2_small = lambda x: f"{min(max(x, 0x00), 0xff):>02x}"
+
 
 def generate_high_asc(assembled: str) -> str:
     asc = assembled.split(" ")[1:]
@@ -606,7 +643,7 @@ def generate_cli(ppath, asc, dat, mem, mif, address_offset: int = 0):
     )
     steam.seek(0)
 
-    tokens = tokenize(steam, pathlib.Path(ppath).parent)
+    tokens, imported_names = tokenize(steam, pathlib.Path(ppath).parent)
     affirmed = root_afermer(tokens)
     linked = linker(affirmed)
     typed = type_verifier(linked)
@@ -620,10 +657,10 @@ def generate_cli(ppath, asc, dat, mem, mif, address_offset: int = 0):
             with open(path, "w") as f:
                 f.write(assembled)
         except FileNotFoundError:
-            logging.critical(f"Could not write to {path}. Exiting.")
+            _log.critical(f"Could not write to {path}. Exiting.")
             sys.exit(-1)
 
-        logging.info(f"Generated .asc file at {path}")
+        _log.info(f"Generated .asc file at {path}")
 
         gen_high_asc = generate_high_asc(assembled)
         path = pathlib.Path(asc + "_high_byte.asc").resolve()
@@ -632,10 +669,10 @@ def generate_cli(ppath, asc, dat, mem, mif, address_offset: int = 0):
             with open(path, "w") as f:
                 f.write(gen_high_asc)
         except FileNotFoundError:
-            logging.critical(f"Could not write to {path}. Exiting.")
+            _log.critical(f"Could not write to {path}. Exiting.")
             sys.exit(-1)
 
-        logging.info(f"Generated .asc file at {path}")
+        _log.info(f"Generated .asc file at {path}")
 
         gen_low_asc = generate_low_asc(assembled)
         path = pathlib.Path(asc + "_low_byte.asc").resolve()
@@ -644,10 +681,10 @@ def generate_cli(ppath, asc, dat, mem, mif, address_offset: int = 0):
             with open(path, "w") as f:
                 f.write(gen_low_asc)
         except FileNotFoundError:
-            logging.critical(f"Could not write to {path}. Exiting.")
+            _log.critical(f"Could not write to {path}. Exiting.")
             sys.exit(-1)
 
-        logging.info(f"Generated .asc file at {path}")
+        _log.info(f"Generated .asc file at {path}")
 
     if dat is not None:
         gen_dat = generate_dat(assembled, address_offset)
@@ -657,10 +694,10 @@ def generate_cli(ppath, asc, dat, mem, mif, address_offset: int = 0):
             with open(path, "w") as f:
                 f.write(gen_dat)
         except FileNotFoundError:
-            logging.critical(f"Could not write to {path}. Exiting.")
+            _log.critical(f"Could not write to {path}. Exiting.")
             sys.exit(-1)
 
-        logging.info(f"Generated .dat file at {path}")
+        _log.info(f"Generated .dat file at {path}")
 
     if mem is not None:
         gen_mem = generate_mem(assembled, address_offset)
@@ -670,10 +707,10 @@ def generate_cli(ppath, asc, dat, mem, mif, address_offset: int = 0):
             with open(path, "w") as f:
                 f.write(gen_mem)
         except FileNotFoundError:
-            logging.critical(f"Could not write to {path}. Exiting.")
+            _log.critical(f"Could not write to {path}. Exiting.")
             sys.exit(-1)
 
-        logging.info(f"Generated .mem file at {path}")
+        _log.info(f"Generated .mem file at {path}")
 
     if mif is not None:
         gen_mif = generate_mif(assembled, address_offset)
@@ -683,85 +720,245 @@ def generate_cli(ppath, asc, dat, mem, mif, address_offset: int = 0):
             with open(path, "w") as f:
                 f.write(gen_mif)
         except FileNotFoundError:
-            logging.critical(f"Could not write to {path}. Exiting.")
+            _log.critical(f"Could not write to {path}. Exiting.")
             sys.exit(-1)
 
-        logging.info(f"Generated .mif file at {path}")
+        _log.info(f"Generated .mif file at {path}")
+
+
+
+def deassemble_asc(assembled: str, root_dictionary: dict[str, int], insts: list[InstructionStrut], names:list[pathlib.Path]) -> str:
+    # TODO: names is a list bc of the linking to other files
+
+    accepted_instructions = [
+        "move", "add", "sub", "and",
+        "load", "store", "addm", "subm",
+        "jump", "jumpz", "jumpnz", "jumpc",
+        "call", "or", "ret", "mover",
+        "loadr", "storer", "rol", "ror",
+        "addr", "subr", "andr", "orr",
+        "xorr", "alsr", ".data"
+    ]
+
+    output = ""
+    address_offset, *assembled = assembled.split(" ")
+    address_offset = int(address_offset, 16)
+    root_dictionary = {v- address_offset: k for k, v in root_dictionary.items()}
+    current_instruction = None
+    current_instruction_remainder = []
+    instructions_remainder = insts.copy()
+    unsupported_roots = {}
+
+    randname = lambda: ''.join(map(lambda x: x if not x.isdigit() else chr(int(x) + 97), f"UnsupportedOldRoot{random.randbytes(16).hex().upper()}"))
+
+    for root, value in root_dictionary.items():
+        if any(ord(_) not in range(97, 123) for _ in value.lower()):
+            new = randname()
+
+            _log.debug(f"Unsupported root name '{value}' -> '{new}'")
+
+            if new in unsupported_roots:
+                _log.critical(f"Duplicate root name '{new}'. Exiting.")
+                sys.exit(-1)
+
+            unsupported_roots[value] = new
+
+    def interpret_final(value):
+        if isinstance(value, RegisterRef):
+            return value.as_arg()
+
+        if isinstance(value, int):
+            return f"0x{value:x}"
+
+        if not isinstance(value, str):
+            _log.critical(f"Unknown value type {value}. Exiting.")
+            sys.exit(-1)
+
+        if value in unsupported_roots:
+            return unsupported_roots[value]
+
+        return value
+
+    for compiled_instruction_i, compiled_instruction in enumerate(assembled):
+        ti = False
+
+        if not current_instruction_remainder:
+            current_instruction = instructions_remainder.pop(0)
+            current_instruction_remainder = current_instruction['compiled'].copy()
+            ti = True
+
+        supposed = current_instruction_remainder.pop(0)
+        if compiled_instruction != supposed:
+            _log.critical(f"Instruction {current_instruction['name']} at {address_offset} is not correct, {compiled_instruction} != {supposed}. Exiting.")
+            sys.exit(-1)
+
+        if compiled_instruction_i in root_dictionary:
+            root = root_dictionary[compiled_instruction_i]
+
+            if root in unsupported_roots:
+                root = unsupported_roots[root]
+
+                output += "# root failed to decompile\n"
+            output += f"{root}:\n"
+
+        if ti and current_instruction['name'] not in accepted_instructions:
+            output += f"    # Decompiled {current_instruction['name']} instruction\n"
+
+        decomp = [current_instruction['name'], ]
+
+        inst_args_flags = list(Instructions[current_instruction['name']].arguments.values())
+
+        if current_instruction['name'] not in accepted_instructions:
+            output += f"    .data 0x{int(compiled_instruction, 16):x}\n"
+            continue
+
+        for i, arg in enumerate(current_instruction['original']):
+            flags = inst_args_flags[i]
+
+            if flags & REFERENCE:
+                decomp.append(root_dictionary[arg])
+                continue
+
+            if flags & REGISTER:
+                decomp.append(RegisterRef(arg))
+                continue
+
+            decomp.append(arg)
+
+
+        output += f"    {decomp[0]} {' '.join(map(interpret_final, decomp[1:]))}\n"
+
+    final = """
+# This code was originally written in the SCPUAS language.
+# large chunks of .data instructions may be resultant of
+# custom implemented commands within the language.
+# 
+# See https://github.com/actorpus/SCPUAS
+#
+# this assembly was rendered from:
+"""
+    final += "\n".join([f"# - {name.name}" for name in names])
+    final += """
+# 
+# If present, check the .scp files for comments and code annotations.
+
+"""
+    final += output + "\n"
+    final += "# End of rendered code\n# Failed root index:\n"
+    final += "\n".join([f"# - '{k.encode().hex()}' -> '{v}'" for k, v in unsupported_roots.items()])
+    # recompilation if necessary:
+    # ''.join(chr(int(b[i:i+2], 16)) for i in range(0, len(b), 2))
+
+    return final
+
+
+def generate_dec(ppath, final_path, asc, address_offset: int = 0):
+    with open(ppath, "r") as f:
+        code = f.read()
+
+    steam = StringIO(
+        replace_code_snippet_eval(code, start_c="{{!", end_c="!}}", _exec=True)
+    )
+    steam.seek(0)
+
+    tokens, imported_names = tokenize(steam, pathlib.Path(ppath).parent)
+    affirmed = root_afermer(tokens)
+    linked = linker(affirmed)
+    typed = type_verifier(linked, ret_roots=True)
+    placed, root_dictionary, insts = compiler(typed, address_offset, ret_roots=True)
+    assembled = assemble_asc(placed, address_offset)
+    rendered = deassemble_asc(assembled, root_dictionary, insts, names=imported_names + [ppath])
+
+    path = pathlib.Path(final_path + ".asm").resolve()
+
+    try:
+        with open(path, "w") as f:
+            f.write(rendered)
+    except FileNotFoundError:
+        _log.critical(f"Could not write to {path}. Exiting.")
+        sys.exit(-1)
+
+    _log.info(f"Generated .asm file at {path}")
 
 
 def main():
     if not sys.argv[1:]:
         sys.argv.append("-h")
 
-    else:
-        args = sys.argv[1:]
 
-        options = "hi:A:a:d:m:f:o:"
-        long_options = [
-            "help",
-            "input",
-            "Address_offset",
-            "asc_output",
-            "dat_output",
-            "mem_output",
-            "mif_output",
-            "output",
-        ]
+    args = sys.argv[1:]
 
-        args, _ = getopt.getopt(args, options, long_options)
+    options = "hi:A:a:d:m:f:o:D:"
+    long_options = [
+        "help",
+        "input",
+        "Address_offset",
+        "asc_output",
+        "dat_output",
+        "mem_output",
+        "mif_output",
+        "output",
+        "Decompile"
+    ]
 
-        asc, dat, mem, mif = None, None, None, None
-        address_offset = 0
-        ppath = None
+    args, _ = getopt.getopt(args, options, long_options)
 
-        for arg, val in args:
-            if arg in ("-h", "--help"):
-                print("Usage: assembler.py -i <input assembly file>")
-                print("                    -A <address_offset>")
-                print(
-                    "                    -a <output asc files (includes high and low)>"
-                )
-                print("                    -d <output dat file>")
-                print("                    -m <output mem file>")
-                print("                    -f <output mif file>")
-                sys.exit(0)
+    asc, dat, mem, mif, dec = None, None, None, None, None
+    address_offset = 0
+    ppath = None
 
-            if arg in ("-i", "--input"):
-                ppath = pathlib.Path(val).resolve()
-                if not ppath.exists():
-                    logging.critical(f"Could not find input file at {ppath}. Exiting.")
-                    sys.exit(-1)
+    for arg, val in args:
+        if arg in ("-h", "--help"):
+            print(__doc__)
 
-            if arg in ("-a", "--asc_output"):
-                asc = val
+            sys.exit(0)
 
-            if arg in ("-d", "--dat_output"):
-                dat = val
+        if arg in ("-i", "--input"):
+            ppath = pathlib.Path(val).resolve()
+            if not ppath.exists():
+                _log.critical(f"Could not find input file at {ppath}. Exiting.")
+                sys.exit(-1)
 
-            if arg in ("-m", "--mem_output"):
-                mem = val
+        if arg in ("-a", "--asc_output"):
+            asc = val
 
-            if arg in ("-f", "--mif_output"):
-                mif = val
+        if arg in ("-d", "--dat_output"):
+            dat = val
 
-            if arg in ("-A", "--Address_offset"):
-                try:
-                    address_offset = int(val)
-                except ValueError:
-                    logging.critical("Address offset must be an integer. Exiting.")
-                    sys.exit(-1)
+        if arg in ("-m", "--mem_output"):
+            mem = val
 
-            if arg in ("-o", "--output"):
-                asc = val
-                dat = val
-                mem = val
-                mif = val
+        if arg in ("-f", "--mif_output"):
+            mif = val
 
-        if not ppath:
-            logging.critical("No input file found. Exiting.")
-            sys.exit(-1)
+        if arg in ("-A", "--Address_offset"):
+            try:
+                address_offset = int(val)
+            except ValueError:
+                _log.critical("Address offset must be an integer. Exiting.")
+                sys.exit(-1)
 
-        generate_cli(ppath, asc, dat, mem, mif, address_offset)
+        if arg in ("-o", "--output"):
+            asc = val
+            dat = val
+            mem = val
+            mif = val
+
+        if arg in ("-D", "--Decompile"):
+            dec = val
+
+    if not ppath:
+        _log.critical("No input file found. Exiting.")
+        sys.exit(-1)
+
+    if dec is not None and any([asc, dat, mem, mif]):
+        _log.critical("Decompile flag cannot be used with output flags. Exiting.")
+        sys.exit(-1)
+
+    if dec is not None:
+        return generate_dec(ppath, dec, asc, address_offset)
+
+    return generate_cli(ppath, asc, dat, mem, mif, address_offset)
 
 
 if __name__ == "__main__":

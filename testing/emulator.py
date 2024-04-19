@@ -270,7 +270,7 @@ if __name__ == "__main__":
     # os.remove(r".\tmp_high_byte.asc")
     # os.remove(r".\tmp_low_byte.asc")
 
-    with open(r"testing/tmp.asc", "r") as f:
+    with open(r"tmp.asc", "r") as f:
         code = f.read().strip().split(" ")
 
     memory_start, *code = code

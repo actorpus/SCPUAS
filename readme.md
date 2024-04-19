@@ -103,9 +103,30 @@ and
 ```
 {{ (_:=$.randomname$) }}: .data {{_}}
 ```
-will be preprocessed into (remember that $.randomname$ is a default alias)
+will be preprocessed into (remember that `$.randomname$` is a default alias)
 ```
 778797A: .data 778797A
+```
+
+# Usage
+Standard usage is as follows, -i is mandatory.
+at least one of -a, -d, -m, -f must be set.
+-A is optional (default to 0)
+```commandline
+assembler.py -i <input scp file>
+             -A <address offset>
+             -a <output asc files (includes high and low) (no ext)>
+             -d <output dat file (no ext)>
+             -m <output mem file (no ext)>
+             -f <output mif file (no ext)>
+```
+
+The assembler can also be called with a -D flag,
+this will assemble then re-render the code into a
+standard .asm file (for the non SCPUAS users)
+```commandline
+assembler.py -i <input scp file>
+             -D <output asm file (no ext)>
 ```
 
 
@@ -138,13 +159,16 @@ will be preprocessed into (remember that $.randomname$ is a default alias)
 - [x] Add support for [1d's frame buffer and sprites](http://simplecpudesign.com/simple_cpu_v1d_pong/index.html)
 
 ## Notes to self:
--import and -include should be different.
--import should take the selected file and insert it into the current file at
+- import and -include should be different.
+- import should take the selected file and insert it into the current file at
 the location of the import statement.
--include should take the selected file and insert it into the current file at
+- include should take the selected file and insert it into the current file at
 the end of the token stream.
 Difference only important for files with code vs files with functions of code.
--import should only include the 'start' root
+- import should only include the 'start' root
+- Future backwards compatibility issue: during assembly of complex data types
+ if ret_roots, each complex data reference needs to be assigned its own temporary root
+ so the old assembler can still assemble the code after rendering.
 
 
 -----

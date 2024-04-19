@@ -1,6 +1,7 @@
 -language standard
 
 start:
+    add RA 0x02
 
 -alias boop 0xFC
 

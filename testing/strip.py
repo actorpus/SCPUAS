@@ -1,5 +1,5 @@
 """
-Hours crying: 4
+Hours crying: 5
 """
 
 with open("code.asm") as file:

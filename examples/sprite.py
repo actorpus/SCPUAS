@@ -1,6 +1,5 @@
-from instructions import (
+from scp_instruction import (
     Instruction,
-    instruction,
     REQUIRED,
     REFERENCE,
     REGISTER,
@@ -13,11 +12,11 @@ import sys
 instructions = {}
 
 
-# instructions not inside the instructions.py file will need to specify the instructions dictionary
+# instructions not inside the standard_instructions.py file will need to specify the instructions dictionary
 # as the first argument to the instruction decorator, this should be a local dictionary for each file
-@instruction(instructions)
+@Instruction.create(instructions)
 # double underscore for .sprite as the final instruction name
-class __sprite(Instruction):
+class __sprite:
     image = UNCHECKED | REQUIRED
 
     @staticmethod
