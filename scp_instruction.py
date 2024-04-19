@@ -60,7 +60,7 @@ class Instruction(type):
                 _log.critical(
                     f"Error parsing arguments for '{_class.__name__}', expected '{', '.join(args_by_func)}', got '{', '.join(args)}'"
                 )
-                sys.exit(-1)
+                raise SystemExit
 
             args = list(args)
             args.sort(key=lambda x: args_by_func.index(x))
@@ -75,7 +75,7 @@ class Instruction(type):
                 _log.critical(
                     f"Error parsing instruction '{name}', instruction already exists"
                 )
-                sys.exit(-1)
+                raise SystemExit
 
             # wrap the compile method to add the asm_compile method, checking for errors
             def compile_wrapper(*args) -> List[str]:
@@ -86,7 +86,7 @@ class Instruction(type):
                         _log.critical(
                             f"Error parsing compilation of '{_class.__name__}', expected 4 characters, got '{value}'"
                         )
-                        sys.exit(-1)
+                        raise SystemExit
 
                     value = value.upper()
 
@@ -98,7 +98,7 @@ class Instruction(type):
                             _log.critical(
                                 f"Error parsing compilation of '{_class.__name__}', expected 4 characters, got '{v}' in '{', '.join(value)}'"
                             )
-                            sys.exit(-1)
+                            raise SystemExit
 
                     return [v.upper() for v in value]
 

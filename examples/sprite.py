@@ -25,13 +25,13 @@ class __sprite:
 
         if len(image) != 5:
             logging.critical("Invalid image size, must be 3x5")
-            sys.exit(-1)
+            raise SystemExit
 
         image = [i.replace(' ', '').replace('\t', '') for i in image]
 
         if any(len(row) != 3 for row in image):
             logging.critical("Invalid image size, must be 3x5")
-            sys.exit(-1)
+            raise SystemExit
 
         image = [
             [i == "#" for i in row] for row in image

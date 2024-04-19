@@ -354,7 +354,7 @@ class __chr:
             _log.critical(
                 f"Error compiling '.chr', only one character is allowed, got '{data}'"
             )
-            sys.exit(-1)
+            raise SystemExit
 
         value = ord(data)
 
@@ -371,7 +371,7 @@ class __str:
             _log.critical(
                 f"Error compiling '.str', only strings are allowed, got '{data}'"
             )
-            sys.exit(-1)
+            raise SystemExit
 
         if data.startswith('"'):
             data = data[1:]
@@ -391,7 +391,7 @@ class __strn:
             _log.critical(
                 f"Error compiling '.strn', only strings are allowed, got '{data}'"
             )
-            sys.exit(-1)
+            raise SystemExit
 
         if data.startswith('"'):
             data = data[1:]
