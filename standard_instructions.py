@@ -314,13 +314,12 @@ class _xorr:
 
 
 @Instruction.create(instructions)
-class _aslr:
+class _asl:
     rd = REGISTER | REQUIRED
-    rs = REGISTER
 
     @staticmethod
-    def compile(rd, rs=0):
-        value = rd << 2 | rs
+    def compile(rd,):
+        value = rd << 2
 
         return f"F{value:1x}0B"
 

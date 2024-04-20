@@ -22,13 +22,15 @@ reset:
     move RA $portA$
     store 0b11111100
     jump start
-fire:
+.fire:
     move RA $portA$
     store 0b11111100
     jump start
 
-# .data 0x3333 1
+.data 0x3333 1
 # the 1 will be ignored
+
+.data {{ 5 + 2 }}
 
 .data reset
 # should be a pointer to the reset root
