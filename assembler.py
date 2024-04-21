@@ -1298,6 +1298,7 @@ def main():
     args, _ = getopt.getopt(args, options, long_options)
 
     asc, dat, mem, mif = None, None, None, None
+    project_path = None
     address_offset = 0
     file_path = None
 
@@ -1338,11 +1339,17 @@ def main():
             mem = val
             mif = val
 
+        if arg in ("-R", "--Root"):
+            project_path = pathlib.Path(val).resolve()
+            if not project_path.exists():
+                _log.critical(f"Could not find project root at {project_path}. Exiting.")
+                raise SystemExit
+
     if not file_path:
         _log.critical("No input file found. Exiting.")
         raise SystemExit
 
-    return generate_cli(file_path, asc, dat, mem, mif, address_offset)
+    return generate_cli(file_path, asc, dat, mem, mif, address_offset, project_path)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,3 @@
-
 ### Notes from the original assembler:
 - ~~The instruction jumpu was removed~~ ~~ITS BACK BABY~~ it was removed again
 - register operating instructions are now named with an 'r' at the end, e.g. 'add RA RB' -> 'addr RA RB'
@@ -11,21 +10,15 @@
 - .strn saves the ascii values of a string (null terminated)
 - -a flag was replaces with -A flag
 - -o flag still works or use -a:d:m:f: for specific output types
-- `\n` ` ` and `,` are used as delimiters, they can be escaped with `\ ` for naming. (automatically escaped in comments)
-- `\n` ` ` and `,` are used as delimiters, they can be escaped with `\ ` for naming. (automatically escaped in comments)
+- `\n` and ` ` are used as delimiters, they can be escaped with `\ ` for naming. (automatically escaped in comments)
 
 ## Todo:
-- [x] Add support for comments (# and #/ ... /#)
-- [x] Reimplement entire original assembler
-- [x] ^ Add in option to use start address location (-A)
-- [x] ^ Patch in -o option to use all outputs (backwards compatibility)
-- [x] ^ Add in .data (will probably include .int .char .str ...)
-- [x] ^ add registers to the instruction set
-- [x] Add assembler instructions (alias)
-- [ ] Add file linking / importing ~
+- [ ] Add file importing (diferent to including importing is like a fat alias)
 - [ ] Add an emulator ~
+- [ ] Fix the fukin -A command to take hex aswell
+- [x] ~~Add in a disassembler~~ it broke lol
 - [ ] Add in a disassembler
-- [x] Add support for [1d's frame buffer and sprites](http://simplecpudesign.com/simple_cpu_v1d_pong/index.html)
+- [ ] Add support for [1d's frame buffer and sprites](http://simplecpudesign.com/simple_cpu_v1d_pong/index.html)
 
 ## Notes to self:
 - import should take the selected file and insert it into the current file at
@@ -33,47 +26,3 @@ the location of the import statement.
 - Future backwards compatibility issue: during assembly of complex data types
  if ret_roots, each complex data reference needs to be assigned its own temporary root
  so the old assembler can still assemble the code after rendering.
-- write how to for using -name
-- write how to for -include
-
-## -name temp howto
-`<instruction> -name <arguments>`
-the -name has to be the first argument of an instruction it wont get added to the
-instructction but will create a subroot for it reference by root.name
-
-```
--language standard
-
-start:
-    load bird.x
-    add RA 1
-    store bird.x
-
-.bird:
-    .data -x 0
-    .data -y 0
-```
-
-## -include temp howto
-- any file imported with -include can only have non static roots (.name not name)
-- -include can be anywhere but the roots will be added to the end
-- -any CIC inside a included file will be ran at include time
-
-
-## other shit
-in CIC forbidden names inclide anything 
-```
-__something__
-_log
-```
-in CIC relative paths are still calculated from project root
-local paths are realtive to execition root obviously
-roots cannot contain the symbol '~'
-
-
-
-
-
-
-
-
