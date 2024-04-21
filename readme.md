@@ -196,9 +196,9 @@ with a `.`. e.g. `move` and `.strn`.
 
 ## Default extra stuff
 The default instruction set contains:
-- `chr` takes one ascii char and represents it as a number (like .data)
-- `str` takes a string and represents it as a series of chars
-- `strn` takes a string and represents it as a series of chars with a null terminator (0x0000)
+- `.chr` takes one ascii char and represents it as a number (like .data)
+- `.str` takes a string and represents it as a series of chars
+- `.strn` takes a string and represents it as a series of chars with a null terminator (0x0000)
 
 There is also the default alias `$.randomname$` which will be replaced with the code to generate
 a 32 char random string.
