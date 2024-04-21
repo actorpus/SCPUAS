@@ -1,14 +1,16 @@
 from scp_instruction import (
     Instruction,
-    REQUIRED,
+    REQUIRED,  #
     REFERENCE,
-    REGISTER,
+    REGISTER,  #
     VALUE,
-    UNCHECKED,
+    UNCHECKED, #
 )
 import logging
 import sys
 
+# This is added to automatically by @Instruction.create
+# Leave empty
 instructions = {}
 
 

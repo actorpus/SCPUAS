@@ -22,36 +22,53 @@
 - [x] ^ Add in .data (will probably include .int .char .str ...)
 - [x] ^ add registers to the instruction set
 - [x] Add assembler instructions (alias)
-- [ ] Add file linking / importing
+- [ ] Add file linking / importing ~
 - [ ] Add an emulator ~
 - [ ] Add in a disassembler
 - [x] Add support for [1d's frame buffer and sprites](http://simplecpudesign.com/simple_cpu_v1d_pong/index.html)
 
 ## Notes to self:
-- import and -include should be different.
 - import should take the selected file and insert it into the current file at
 the location of the import statement.
-- include should take the selected file and insert it into the current file at
-the end of the token stream.
-Difference only important for files with code vs files with functions of code.
-- import should only include the 'start' root
 - Future backwards compatibility issue: during assembly of complex data types
  if ret_roots, each complex data reference needs to be assigned its own temporary root
  so the old assembler can still assemble the code after rendering.
+- write how to for using -name
+- write how to for -include
+
+## -name temp howto
+`<instruction> -name <arguments>`
+the -name has to be the first argument of an instruction it wont get added to the
+instructction but will create a subroot for it reference by root.name
+
+```
+-language standard
+
+start:
+    load bird.x
+    add RA 1
+    store bird.x
+
+.bird:
+    .data -x 0
+    .data -y 0
+```
+
+## -include temp howto
+- any file imported with -include can only have non static roots (.name not name)
+- -include can be anywhere but the roots will be added to the end
+- -any CIC inside a included file will be ran at include time
 
 
-
-# steps
-1. code file is read, (unknown symbols removed), and iter'd -> raw_iter: `iter`
-2. raw_iter is passed to tokenizer -> token_iter: `iter`
-3. token_iter -> alias_replace -> token_iter: `iter`
-4. token_iter -> cic_executor (runs all the python code)
-    - output -> output: `iter`
-    - output -> tokenizer -> output: `iter`
-    - output is then mixed into the iter stream out of cic_executor -> token_iter: `iter`
-5. token_iter -> instruction_press -> roots of instructions: `orderddict[root, instructions: list]`
-
-
+## other shit
+in CIC forbidden names inclide anything 
+```
+__something__
+_log
+```
+in CIC relative paths are still calculated from project root
+local paths are realtive to execition root obviously
+roots cannot contain the symbol '~'
 
 
 
