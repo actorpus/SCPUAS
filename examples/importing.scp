@@ -1,0 +1,23 @@
+-language standard
+-language ./sprite.py
+-include ./string/standard.scp
+
+
+start:
+    jump string.standard.helloworld
+    load bird.x
+    add RA 4
+    addr RA RB
+
+{!
+
+# Indentation in prints isn't actually important
+print("    .data", string.standard.a)
+
+!}
+
+
+.bird:
+    .data -x 0
+    .data -y 0
+    .data 0

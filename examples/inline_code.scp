@@ -10,7 +10,9 @@ start:
     .strn "{{ tempname }}"
 
 block:
-{{!
+{!
+print(tempname)
+
 for _ in range(5):
     print(f"jump {_}")
-!}}
+!}

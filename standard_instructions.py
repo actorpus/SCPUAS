@@ -314,13 +314,12 @@ class _xorr:
 
 
 @Instruction.create(instructions)
-class _aslr:
+class _asl:
     rd = REGISTER | REQUIRED
-    rs = REGISTER
 
     @staticmethod
-    def compile(rd, rs=0):
-        value = rd << 2 | rs
+    def compile(rd,):
+        value = rd << 2
 
         return f"F{value:1x}0B"
 
@@ -337,12 +336,18 @@ class _aslr:
 @Instruction.create(instructions)
 # __ will be replaced with '.'
 class __data:
+    # UNCHECKED could be anything...
     data = UNCHECKED
 
     @staticmethod
-    def compile(data: int = 0):
-        return f"{data:04x}"
+    def compile(data: any = None):
+        if data is None:
+            data = "0"
 
+        if type(data) == str:
+            data = eval(data)
+
+        return f"{data:04x}"
 
 @Instruction.create(instructions)
 class __chr:

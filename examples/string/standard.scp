@@ -1,0 +1,9 @@
+-language standard
+
+
+{!
+a = 43
+!}
+
+.helloworld:
+    .strn "Hello World!"

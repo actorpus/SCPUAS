@@ -57,7 +57,8 @@ def swap(name):
             new_code = new_code.replace(f"and R{_} R{__}", f"andr R{_} R{__}")
             new_code = new_code.replace(f"or R{_} R{__}", f"orr R{_} R{__}")
             new_code = new_code.replace(f"xor R{_} R{__}", f"xorr R{_} R{__}")
-            new_code = new_code.replace(f"asl R{_} R{__}", f"aslr R{_} R{__}")
+
+        # new_code = new_code.replace(f"asl R{_} R{__}", f"aslr R{_} R{__}")
 
     # search for runs of .data commands
     runs = []
@@ -109,6 +110,10 @@ def swap(name):
 
     for i, line in enumerate(new_code):
         if line.startswith("#"):
+            if len(line) == 1:
+                new_code[i] = "# "
+                line = "# "
+
             if not line[1] == " ":
                 new_code[i] = "# " + line[1:]
                 line = "# " + line[1:]
@@ -193,16 +198,16 @@ def swap(name):
 
 if __name__ == '__main__':
     if not len(sys.argv) > 1:
-        print("Usage: python asm_to_scp.py *<file> > <output>.scp")
+        print("Usage: python asm_to_scp.py *<file> <output>.scp")
         raise SystemExit
 
     # call m4
     f = open(".tmp.m4.asm", "w")
-    subprocess.run(["m4"] + sys.argv[1:], stdout=f)
+    subprocess.run(["m4"] + sys.argv[1:-1], stdout=f)
     f.close()
 
     code = swap(".tmp.m4.asm")
-
     os.remove(".tmp.m4.asm")
 
-    print(code)
+    with open(sys.argv[-1], "w") as f:
+        f.write(code)
