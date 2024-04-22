@@ -203,23 +203,34 @@ The default instruction set contains:
 There is also the default alias `$.randomname$` which will be replaced with the code to generate
 a 32 char random string.
 
+## Disassembler
+It's less of a disassembler and more of an advanced output type.
+Using the option -D will output ONE .asm file that is functionally identical
+to the input file but using the original simple cpu assembly language.
+Important note: no information is technically lost during this process
+as anything that isn't directly assembly is encoded in comments, as of current
+the asm_to_scp.py script does NOT use this information.
+
 # Usage
 Standard usage is as follows, -i is mandatory.
 at least one of -a, -d, -m, -f must be set.
 -A and -R are optional.
 ```commandline
-assembler.py -i <input scp file>
+assembler.py -i <file>                scp file
              -A <address offset>
-             -a <output asc files (includes high and low) (no ext)>
-             -d <output dat file (no ext)>
-             -m <output mem file (no ext)>
-             -f <output mif file (no ext)>
-             -R <project root> (will default to the input file's directory)
+             -a <filename>            generate asc files (includes high and low)
+             -d <filename>            generate dat file
+             -m <filename>            generate mem file
+             -f <filename>            generate mif file
+             -o <filename>            output file (similar to the old assembler this will output ALL types)
+             -D <filename>            generate .asm file (disassembly for original format)
+             -v <verbose>
+             -V <very verbose>
 ```
 Example:
 ```commandline
 assembler.py -i examples/pong.scp 
-             -A 1000 
+             -A 0x1000 
              -a examples/pong
 ```
 Will create the files `examples/pong.asc`, `examples/pong_high_byte.asc`, `examples/pong_low_byte.asc`

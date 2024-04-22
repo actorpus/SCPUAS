@@ -7,10 +7,11 @@ start:
     jump string.standard.helloworld
     load bird.x
     add RA 4
+    addr RA RB
 
 {!
 
-# Indentation in prints isnt actually important
+# Indentation in prints isn't actually important
 print("    .data", string.standard.a)
 
 !}

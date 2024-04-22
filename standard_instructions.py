@@ -336,18 +336,18 @@ class _asl:
 @Instruction.create(instructions)
 # __ will be replaced with '.'
 class __data:
-    # UNCHECKED will allways be a string
+    # UNCHECKED could be anything...
     data = UNCHECKED
 
     @staticmethod
-    def compile(data: str = None):
+    def compile(data: any = None):
         if data is None:
             data = "0"
 
-        data = int(data)
+        if type(data) == str:
+            data = eval(data)
 
         return f"{data:04x}"
-
 
 @Instruction.create(instructions)
 class __chr:

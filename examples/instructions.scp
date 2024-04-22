@@ -42,6 +42,7 @@ reset:
 # 0x41 0x42 0x43 0x20 0x61 0x62 0x63 0x20 0x22 0x20
 .strn "a"
 
+# not dymaic so will get moved above the dynamics
 se\ lf:
     # Funny property caused in the tokeniser
     # you can escape the space in the root with a backslash

@@ -5,6 +5,7 @@
 # http://simplecpudesign.com/
 import logging
 import pathlib
+import random
 from collections import OrderedDict
 from typing import *
 from types import ModuleType
@@ -21,28 +22,26 @@ from scp_instruction import (
 )
 
 _ = REQUIRED, REFERENCE, REGISTER, VALUE, UNCHECKED
-# Dont let your IDE lie to you these are not unused imports.
+# Don't let your IDE lie to you these are not unused imports.
 # They are used when executing -language statements but as that
 # happens about 8 scopes down IDE's think there unused
 
 __doc__ = """
 Usage:
 
-standard use case 
-assembler.py -i <input scp file>
+assembler.py -i <file>                scp file
              -A <address offset>
-             -a <output asc files (includes high and low) (no ext)>
-             -d <output dat file (no ext)>
-             -m <output mem file (no ext)>
-             -f <output mif file (no ext)>
-
-'compile' into asm file
-assembler.py -i <input scp file>
-             -D <output asm file (no ext)>
+             -a <filename>            generate asc files (includes high and low)
+             -d <filename>            generate dat file
+             -m <filename>            generate mem file
+             -f <filename>            generate mif file
+             -o <filename>            output file (similar to the old assembler this will output ALL types)
+             -D <filename>            generate .asm file (disassembly for original format)
+             -v <verbose>
+             -V <very verbose>
 """
 
 Instructions: dict[str, Instruction] = {}
-
 
 # sets up the default aliases
 aliases = {".randomname": '__import__("random").randbytes(16).hex()'}
@@ -69,10 +68,10 @@ class RegisterRef:
         self.value = ord(argument[1]) - 65
 
     def __str__(self):
-        return f"Register(R{chr(self.value+65)})"
+        return f"Register(R{chr(self.value + 65)})"
 
     def __repr__(self):
-        return f"Register(R{chr(self.value+65)})"
+        return f"Register(R{chr(self.value + 65)})"
 
     def as_arg(self):
         return f"R{chr(self.value + 65)}"
@@ -165,11 +164,11 @@ def char_stream_tokenize(stream: iter, _log_name="Tokenizer") -> iter:
     token = ""
     delimiters = [" ", "\n"]
 
-    inside_block_comment = False
-    inside_line_comment = False
     inside_block_code = False
     inside_line_code = False
     inside_string = False
+    inside_block_comment = False
+    inside_line_comment = False
 
     while True:
         try:
@@ -188,23 +187,10 @@ def char_stream_tokenize(stream: iter, _log_name="Tokenizer") -> iter:
 
         memory = memory[1:] + [char]
 
-        if memory[-2:] == ["#", "/"] and not inside_block_comment:
-            inside_block_comment = True
-            inside_line_comment = False
-
-        elif memory[-2:] == ["/", "#"] and inside_block_comment:
-            inside_block_comment = False
-            inside_line_comment = False
-            continue
-
-        elif memory[-1:] == ["#"] and not inside_line_code:
-            inside_line_comment = True
-
-        elif memory[-1:] == ["\n"] and inside_line_comment:
-            inside_line_comment = False
-            continue
-
-        elif memory[-2:] == ["{", "!"] and not inside_block_code:
+        # Block code
+        if memory[-2:] == ["{", "!"] and not any([
+            inside_block_code,
+        ]):
             if inside_line_code:
                 _log.critical("Block code start symbol found inside line code")
                 # passes out everything for nice error messages later
@@ -217,7 +203,11 @@ def char_stream_tokenize(stream: iter, _log_name="Tokenizer") -> iter:
             token += "}"
             continue
 
-        elif memory[-2:] == ["{", "{"] and not inside_line_code:
+        # Line code
+        elif memory[-2:] == ["{", "{"] and not any([
+            inside_block_code,
+            inside_line_code
+        ]):
             if inside_block_code:
                 _log.critical("Line code start symbol found inside block code")
                 raise TokenizeError("Line code start symbol found inside block code", token, memory, char, stream)
@@ -229,11 +219,43 @@ def char_stream_tokenize(stream: iter, _log_name="Tokenizer") -> iter:
             token += "}"
             continue
 
-        elif memory[-1:] == ["\""] and not inside_string:
+        # Strings
+        elif memory[-1:] == ["\""] and not any([
+            inside_block_code,
+            inside_line_code,
+            inside_string
+        ]):
             inside_string = True
 
         elif memory[-1:] == ["\""] and inside_string:
             inside_string = False
+
+        # Block comments
+        elif memory[-2:] == ["#", "/"] and not any([
+            inside_block_code,
+            inside_line_code,
+            inside_string,
+            inside_block_comment,
+        ]):
+            inside_block_comment = True
+
+        elif memory[-2:] == ["/", "#"] and inside_block_comment:
+            inside_block_comment = False
+            continue
+
+        # Line comments
+        elif memory[-1:] == ["#"] and not any([
+            inside_block_code,
+            inside_line_code,
+            inside_string,
+            inside_block_comment,
+            inside_line_comment
+        ]):
+            inside_line_comment = True
+
+        elif memory[-1:] == ["\n"] and inside_line_comment:
+            inside_line_comment = False
+            continue
 
         if char in delimiters and not (
                 inside_block_comment
@@ -407,7 +429,8 @@ def token_stream_cic_executor(stream: iter, project_root, executing_from, _log_n
             _log.debug("End of stream")
             break
 
-        insert = []
+        opp = "{{" in token or "{!" in token
+
 
         while "{!" in token:
             start = token.index("{!")
@@ -432,20 +455,7 @@ def token_stream_cic_executor(stream: iter, project_root, executing_from, _log_n
                 use_exec=True
             )
 
-            # catch up result to where we are now
-            temp_char_stream = create_char_stream(result)
-            temp_char_stream = char_stream_ascii_only(temp_char_stream, _log_name=f"{log_name}.AsciiOnly")
-            temp_token_stream = char_stream_tokenize(temp_char_stream, _log_name=f"{log_name}.Tokenizer")
-            temp_token_stream = token_stream_alias_replacer(temp_token_stream, _log_name=f"{log_name}.AliasReplace")
-
-            if start != 0:
-                insert.append(token[:start])
-
-            # At no point should an entire stream be loaded into memory, store a reference to an iter
-            # and yield individual tokens after processing
-            insert.append(temp_token_stream)
-
-            token = token[end + 2:]
+            token = token[:start] + result + token[end + 2:]
 
         while "{{" in token:
             start = token.index("{{")
@@ -470,32 +480,22 @@ def token_stream_cic_executor(stream: iter, project_root, executing_from, _log_n
                 use_exec=False
             )
 
-            # catch up result to where we are now
-            temp_char_stream = create_char_stream(result)
-            temp_char_stream = char_stream_ascii_only(temp_char_stream, _log_name=f"{log_name}.AsciiOnly")
-            temp_token_stream = char_stream_tokenize(temp_char_stream, _log_name=f"{log_name}.Tokenizer")
-            temp_token_stream = token_stream_alias_replacer(temp_token_stream, _log_name=f"{log_name}.AliasReplace")
+            token = token[:start] + str(result) + token[end + 2:]
 
-            if start != 0:
-                insert.append(token[:start])
+        if not opp:
+            yield token
+            continue
 
-            # At no point should an entire stream be loaded into memory, store a reference to an iter
-            # and yield individual tokens after processing
-            insert.append(temp_token_stream)
+        # catch up result to where we are now
+        log_name = f"{_log_name}.ScopeExecutor"
 
-            token = token[end + 2:]
+        temp_char_stream = create_char_stream(token)
+        temp_char_stream = char_stream_ascii_only(temp_char_stream, _log_name=f"{log_name}.AsciiOnly")
+        temp_token_stream = char_stream_tokenize(temp_char_stream, _log_name=f"{log_name}.Tokenizer")
+        temp_token_stream = token_stream_alias_replacer(temp_token_stream, _log_name=f"{log_name}.AliasReplace")
 
-        if token:
-            insert.append(token)
-
-        # decompress the insert list into a single stream
-        for i in insert:
-            if isinstance(i, str):
-                yield i
-                continue
-
-            for j in i:
-                yield j
+        for t in temp_token_stream:
+            yield t
 
 
 RootedInstructionsStruct = OrderedDict[str, list[InstructionStrut]]
@@ -773,7 +773,8 @@ def rooted_instructions_rearranger(roots: RootedInstructionsStruct) -> RootedIns
             continue
 
         new_roots[root] = roots[root]
-        del roots[root]
+
+    roots = {k: v for k, v in roots.items() if k.startswith(".")}
 
     for root in roots:
         if not root.startswith('.'):
@@ -785,8 +786,11 @@ def rooted_instructions_rearranger(roots: RootedInstructionsStruct) -> RootedIns
     return new_roots
 
 
-def parse_dynamic_token(token: Union[str, RegisterRef]) -> Union[int, str, RegisterRef]:
+def parse_dynamic_token(token: Union[int, str, RegisterRef]) -> Union[int, str, RegisterRef]:
     if isinstance(token, RegisterRef):
+        return token
+
+    if isinstance(token, int):
         return token
 
     if token.startswith("0x"):
@@ -858,7 +862,7 @@ def rooted_instructions_argument_parser(roots: RootedInstructionsStruct) -> Root
     return roots
 
 
-def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> iter:
+def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> tuple[list[str], RootedInstructionsStruct]:
     _log = logging.getLogger("Compiler")
 
     # 1. compile all instructions with dummy references
@@ -871,16 +875,16 @@ def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> iter:
                 flags = list(Inst.arguments.values())[i]
                 arg = instruction['arguments'][i]
 
+                if arg in roots:
+                    dummy_args.append(0)
+                    continue
+
                 if flags & UNCHECKED:
                     dummy_args.append(arg)
                     continue
 
                 if flags & REGISTER:
                     dummy_args.append(arg.value)
-                    continue
-
-                if arg in roots:
-                    dummy_args.append(0)
                     continue
 
                 if isinstance(arg, int):
@@ -891,7 +895,6 @@ def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> iter:
                     _log.critical(f"Unknown argument type '{flags}' for argument {root}: {instruction['name']}. Exiting.")
                     raise SystemExit
 
-
             instruction['length'] = len(Inst.compile(*dummy_args))
 
     # 2. Figure out final location of all roots
@@ -900,7 +903,7 @@ def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> iter:
 
     for root in roots:
         if root.replace("~", "") in indexed_roots:
-            _log.debug(f"Skipping root {root} as it is already indexed. under {root.replace('~', '')}")
+            _log.debug(f"Skipping root {root} as it is already indexed under {root.replace('~', '')}.")
             continue
 
         indexed_roots[root.replace("~", "")] = pointer
@@ -933,14 +936,15 @@ def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> iter:
                 raise SystemExit
 
             output += Inst.compile(*args)
+            instruction['compiled'] = output[-instruction['length']:]
 
-    return output
+    return output, roots
 
 
 def full_stack_load_compile(
         project_root: pathlib.Path,
         code_location: pathlib.Path,
-):
+) -> tuple[list[str], RootedInstructionsStruct, set[pathlib.Path]]:
     with open(code_location) as file:
         code = file.read()
 
@@ -955,9 +959,10 @@ def full_stack_load_compile(
     rooted_instructions = rooted_instructions_rearranger(rooted_instructions)
     rooted_instructions = rooted_instructions_argument_parser(rooted_instructions)
 
-    compiled = rooted_instructions_compiler(rooted_instructions)
+    compiled, roots = rooted_instructions_compiler(rooted_instructions)
 
-    return compiled
+    return compiled, roots, imports
+
 
 def assemble_asc(stream: list[str], memory_offset: int) -> str:
     # 'write start address to file'
@@ -1028,12 +1033,160 @@ BEGIN
     return output
 
 
+def generate_dec(roots: RootedInstructionsStruct, imports: set[pathlib.Path], project_root: pathlib.Path, project_path: pathlib.Path) -> str:
+    _log = logging.getLogger("DecGenerator")
+
+    accepted_instructions = [
+        "move", "add", "sub", "and",
+        "load", "store", "addm", "subm",
+        "jump", "jumpz", "jumpnz", "jumpc",
+        "call", "or", "ret", "mover",
+        "loadr", "storer", "rol", "ror",
+        "addr", "subr", "andr", "orr",
+        "xorr", "alsr", ".data"
+    ]
+    instruction_aliases = {
+        "mover": "move",
+        "loadr": "load",
+        "storer": "store",
+        "addr": "add",
+        "subr": "sub",
+        "andr": "and",
+        "orr": "or",
+        "xorr": "xor",
+        "alsr": "als"
+    }
+
+    rendered_imports = []
+
+    for imp in imports:
+        if imp.name == "standard_instructions.py":
+            rendered_imports.append(f"# - standard_instructions.py  (root assembler version)")
+            continue
+
+        rendered_imports.append(f"# - {imp.resolve().relative_to(project_root)}")
+
+    root_mappings = {}
+
+    # check for invalid names  ( old format only supports letters and numbers )
+    for root in roots:
+        real_name = root
+        if not all(ord(_.upper()) in range(65, 91) or ord(_) in range(48, 58) for _ in real_name):
+            while (gen := f"UnsupportedRoot{random.randbytes(16).hex().upper()}") in root_mappings:
+                _log.debug(f"Generated duplicate root name {gen}. Regenerating.")
+            root_mappings[root] = gen
+            continue
+        root_mappings[root] = root
+
+    dead_mappings = []
+    dead_instructions = {}
+
+    output = ""
+    for root in roots:
+        if not roots[root]:
+            dead_mappings.append(root_mappings[root])
+            continue
+
+        output += f"{root_mappings[root]}:\n"
+
+        for instruction in roots[root]:
+            if instruction["name"] in accepted_instructions:
+                if instruction["name"] in instruction_aliases:
+                    output += f"    {instruction_aliases[instruction['name']]} "
+                else:
+                    output += f"    {instruction['name']} "
+
+                args = []
+
+                for i, arg in enumerate(instruction["arguments"]):
+                    orig_arg = instruction["original"][i]
+
+                    if orig_arg in root_mappings:
+                        args.append(root_mappings[orig_arg])
+                        continue
+
+                    re_interp = parse_dynamic_token(orig_arg)
+
+                    if isinstance(re_interp, int):
+                        args.append(f"0x{re_interp:04x}")
+                        continue
+
+                    if isinstance(re_interp, str):
+                        args.append(re_interp)
+                        continue
+
+                    if isinstance(re_interp, RegisterRef):
+                        args.append(re_interp.value)
+                        continue
+
+                    _log.critical(f"Unknown argument type '{re_interp}' for argument {i} of instruction '{instruction['name']}'. Exiting.")
+                    raise SystemExit
+
+                output += " ".join(args)
+                output += "\n"
+                continue
+
+            _log.debug(f"Expanding instruction {instruction['name']} into .data's")
+            output += f"    # Unsupported original instruction '{instruction['name']}'\n"
+
+            while (gen := f"{random.randbytes(14).hex().upper()}") in dead_instructions:
+                _log.debug(f"Generated duplicate instruction code {gen}, Regenerating.")
+
+            dead_instructions[gen] = instruction
+
+            output += f"    # {len(instruction['compiled']):04x}:DEC:{gen} \n".upper()
+            for v in instruction["compiled"]:
+                output += f"    .data 0x{v}\n"
+
+    root_mappings = [
+        f"\n# - {v}: {k.__repr__()}" for k, v in root_mappings.items() if k != v
+    ]
+    dead_mappings = [
+        f"\n# - {_}" for _ in dead_mappings
+    ]
+    project_path = project_path.resolve().relative_to(project_root)
+
+    # Encodes name and arguments into a hex string
+    dead_instructions = [
+        f"\n# DeadInstruction{k}:\n# {
+        "".join([_ + ("\n# " if (i + 1) % 48 == 0 else "") 
+                 for i, _ in enumerate(":".join(_.encode().hex().upper() for _ in [v['name']] + v['original']))
+                 ])
+        }" for k, v in dead_instructions.items()
+    ]
+
+    final = f"""
+# This code was originally written in the SCPUAS language.
+# large chunks of .data instructions may be resultant of
+# custom implemented commands within the language. If 
+# present, check the .scp files for comments and code 
+# annotations. See https://github.com/actorpus/SCPUAS
+
+{output}
+
+# Assembled from:
+# - {project_path}
+# 
+# Files loaded: 
+{"\n".join(rendered_imports)}
+# 
+# Root mappings: {"".join(root_mappings)}
+#
+# Dead roots: {"".join(dead_mappings)}
+# {"".join(dead_instructions)}
+# 
+"""
+
+    return final.strip()
+
+
 def generate_cli(
         file_path: pathlib.Path,
         asc: Union[None, str],
         dat: Union[None, str],
         mem: Union[None, str],
         mif: Union[None, str],
+        dec: Union[None, str],
         address_offset: int = 0,
         project_path: Union[None, pathlib.Path] = None
 ):
@@ -1042,7 +1195,7 @@ def generate_cli(
     if project_path is None:
         project_path = file_path.parent
 
-    compiled = full_stack_load_compile(project_path, file_path)
+    compiled, roots, imports = full_stack_load_compile(project_path, file_path)
 
     assembled = assemble_asc(compiled, address_offset)
 
@@ -1121,157 +1274,18 @@ def generate_cli(
 
         _log.info(f"Generated .mif file at {path}")
 
-def deassemble_asc_OLD(assembled: str, root_dictionary: dict[str, int], insts: list[InstructionStrut], names:list[pathlib.Path]) -> str:
-    # TODO: names is a list bc of the linking to other files
+    if dec is not None:
+        dec_gen = generate_dec(roots, imports, project_path, file_path)
+        path = pathlib.Path(dec + ".dec.asm").resolve()
 
-    accepted_instructions = [
-        "move", "add", "sub", "and",
-        "load", "store", "addm", "subm",
-        "jump", "jumpz", "jumpnz", "jumpc",
-        "call", "or", "ret", "mover",
-        "loadr", "storer", "rol", "ror",
-        "addr", "subr", "andr", "orr",
-        "xorr", "alsr", ".data"
-    ]
-
-    output = ""
-    address_offset, *assembled = assembled.split(" ")
-    address_offset = int(address_offset, 16)
-    root_dictionary = {v- address_offset: k for k, v in root_dictionary.items()}
-    current_instruction = None
-    current_instruction_remainder = []
-    instructions_remainder = insts.copy()
-    unsupported_roots = {}
-
-    randname = lambda: ''.join(map(lambda x: x if not x.isdigit() else chr(int(x) + 97), f"UnsupportedOldRoot{random.randbytes(16).hex().upper()}"))
-
-    for root, value in root_dictionary.items():
-        if any(ord(_) not in range(97, 123) for _ in value.lower()):
-            new = randname()
-
-            _log.debug(f"Unsupported root name '{value}' -> '{new}'")
-
-            if new in unsupported_roots:
-                _log.critical(f"Duplicate root name '{new}'. Exiting.")
-                raise SystemExit
-
-            unsupported_roots[value] = new
-
-    def interpret_final(value):
-        if isinstance(value, RegisterRef):
-            return value.as_arg()
-
-        if isinstance(value, int):
-            return f"0x{value:x}"
-
-        if not isinstance(value, str):
-            _log.critical(f"Unknown value type {value}. Exiting.")
+        try:
+            with open(path, "w") as f:
+                f.write(dec_gen)
+        except FileNotFoundError:
+            _log.critical(f"Could not write to {path}. Exiting.")
             raise SystemExit
 
-        if value in unsupported_roots:
-            return unsupported_roots[value]
-
-        return value
-
-    for compiled_instruction_i, compiled_instruction in enumerate(assembled):
-        ti = False
-
-        if not current_instruction_remainder:
-            current_instruction = instructions_remainder.pop(0)
-            current_instruction_remainder = current_instruction['compiled'].copy()
-            ti = True
-
-        supposed = current_instruction_remainder.pop(0)
-        if compiled_instruction != supposed:
-            _log.critical(f"Instruction {current_instruction['name']} at {address_offset} is not correct, {compiled_instruction} != {supposed}. Exiting.")
-            raise SystemExit
-
-        if compiled_instruction_i in root_dictionary:
-            root = root_dictionary[compiled_instruction_i]
-
-            if root in unsupported_roots:
-                root = unsupported_roots[root]
-
-                output += "# root failed to decompile\n"
-            output += f"{root}:\n"
-
-        if ti and current_instruction['name'] not in accepted_instructions:
-            output += f"    # Decompiled {current_instruction['name']} instruction\n"
-
-        decomp = [current_instruction['name'], ]
-
-        inst_args_flags = list(Instructions[current_instruction['name']].arguments.values())
-
-        if current_instruction['name'] not in accepted_instructions:
-            output += f"    .data 0x{int(compiled_instruction, 16):x}\n"
-            continue
-
-        for i, arg in enumerate(current_instruction['original']):
-            flags = inst_args_flags[i]
-
-            if flags & REFERENCE:
-                decomp.append(root_dictionary[arg])
-                continue
-
-            if flags & REGISTER:
-                decomp.append(RegisterRef(arg))
-                continue
-
-            decomp.append(arg)
-
-
-        output += f"    {decomp[0]} {' '.join(map(interpret_final, decomp[1:]))}\n"
-
-    final = """
-# This code was originally written in the SCPUAS language.
-# large chunks of .data instructions may be resultant of
-# custom implemented commands within the language.
-#
-# See https://github.com/actorpus/SCPUAS
-#
-# this assembly was rendered from:
-"""
-    final += "\n".join([f"# - {name.name}" for name in names])
-    final += """
-#
-# If present, check the .scp files for comments and code annotations.
-
-"""
-    final += output + "\n"
-    final += "# End of rendered code\n# Failed root index:\n"
-    final += "\n".join([f"# - '{k.encode().hex()}' -> '{v}'" for k, v in unsupported_roots.items()])
-    # recompilation if necessary:
-    # ''.join(chr(int(b[i:i+2], 16)) for i in range(0, len(b), 2))
-
-    return final
-
-# def generate_dec(ppath, final_path, asc, address_offset: int = 0):
-#     with open(ppath, "r") as f:
-#         code = f.read()
-#
-#     steam = StringIO(
-#         replace_code_snippet_eval(code, start_c="{{!", end_c="!}}", _exec=True)
-#     )
-#     steam.seek(0)
-#
-#     tokens, imported_names = tokenize(steam, pathlib.Path(ppath).parent)
-#     affirmed = root_afermer(tokens)
-#     linked = linker(affirmed)
-#     typed = type_verifier(linked, ret_roots=True)
-#     placed, root_dictionary, insts = compiler(typed, address_offset, ret_roots=True)
-#     assembled = assemble_asc(placed, address_offset)
-#     rendered = deassemble_asc(assembled, root_dictionary, insts, names=imported_names + [ppath])
-#
-#     path = pathlib.Path(final_path + ".asm").resolve()
-#
-#     try:
-#         with open(path, "w") as f:
-#             f.write(rendered)
-#     except FileNotFoundError:
-#         _log.critical(f"Could not write to {path}. Exiting.")
-#         raise SystemExit
-#
-#     _log.info(f"Generated .asm file at {path}")
+        _log.info(f"Generated .dec.asm file at {path}")
 
 
 def main():
@@ -1282,7 +1296,7 @@ def main():
 
     args = sys.argv[1:]
 
-    options = "hi:A:a:d:m:f:o:R:"
+    options = "hi:A:a:d:m:f:o:D:R:-v-V"
     long_options = [
         "help",
         "input",  # input file
@@ -1291,15 +1305,19 @@ def main():
         "dat_output",
         "mem_output",
         "mif_output",
+        "dec_output"
         "output",  # legacy support
-        "Root" # project root (if you're initial file is not compiling from the project root)
+        "Root"  # project root (if you're initial file is not compiling from the project root)
+        "verbose",
+        "super_verbose"
     ]
 
     args, _ = getopt.getopt(args, options, long_options)
 
-    asc, dat, mem, mif = None, None, None, None
+    asc, dat, mem, mif, dec = None, None, None, None, None
     project_path = None
     address_offset = 0
+    log_level = logging.WARNING
     file_path = None
 
     for arg, val in args:
@@ -1327,11 +1345,9 @@ def main():
             mif = val
 
         if arg in ("-A", "--Address_offset"):
-            try:
-                address_offset = int(val)
-            except ValueError:
-                _log.critical("Address offset must be an integer. Exiting.")
-                raise SystemExit
+            address_offset = eval(val)
+            # normally bad practice but the CIC executor has so many chances
+            # for code injection that it's not worth the effort to prevent it
 
         if arg in ("-o", "--output"):
             asc = val
@@ -1339,17 +1355,32 @@ def main():
             mem = val
             mif = val
 
+        if arg in ("-D", "--dec_output"):
+            dec = val
+
         if arg in ("-R", "--Root"):
             project_path = pathlib.Path(val).resolve()
             if not project_path.exists():
                 _log.critical(f"Could not find project root at {project_path}. Exiting.")
                 raise SystemExit
 
+        if arg in ("-v", "--verbose"):
+            log_level = logging.INFO
+
+        if arg in ("-V", "--super_verbose"):
+            log_level = logging.DEBUG
+
     if not file_path:
         _log.critical("No input file found. Exiting.")
         raise SystemExit
 
-    return generate_cli(file_path, asc, dat, mem, mif, address_offset, project_path)
+    logging.basicConfig(level=log_level)
+
+    if not any([asc, dat, mem, mif, dec]):
+        _log.critical("No output files specified. Exiting.")
+        raise SystemExit
+
+    return generate_cli(file_path, asc, dat, mem, mif, dec, address_offset, project_path)
 
 
 if __name__ == "__main__":
