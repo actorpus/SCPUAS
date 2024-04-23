@@ -6,7 +6,7 @@
 start:
     jump string.standard.helloworld
     load bird.x
-    add 4
+    add 0x01
     addr RA RB
 
 {!

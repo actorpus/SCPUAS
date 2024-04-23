@@ -170,17 +170,37 @@ class TokenizeError(Exception):
 """
 
 
-def print_debug(instruction, file="Unknown"):
+def print_debug(instruction):
     # incase logging is going to console ensures the debug is visible
     time.sleep(0.2)
 
-    if 'line' not in instruction:
-        line_pr = "Unable to find line"
-        line = "Unknown"
-    else:
-        # Will at some point reload the file and get the line
-        line_pr = "Unable to load line from file"
+    file = "Unknown"
+    line = "Unknown"
+
+    if 'line' in instruction:
         line = instruction['line']
+
+    if 'originates_from' in instruction:
+        file = instruction['originates_from']
+
+    a = ""
+    b = f"{line!s:>4} : {file}"
+    c = ""
+
+    if file != "Unknown":
+        with open(file) as f:
+            lines = f.readlines()[line - 1:line + 2]
+
+        a = f"{line - 1!s:>4} | {lines[0].strip()}\n"
+        b = f"{line!s:>4} | {lines[1].strip()}\n"
+        c = f"{line + 1!s:>4} | {lines[2].strip()}"
+
+        line_loc = lines[1].count(instruction["name"])
+
+        if line_loc == 1:
+            b += ((" " * (lines[1].find(instruction["name"]) + 3)) +
+                  ("^" * (len(instruction["name"]) + 1 + len(' '.join(map(str, instruction["original"]))))) +
+                  "\n")
 
     if Instructions[instruction["name"]].__doc__ is not None:
         doc = Instructions[instruction["name"]].__doc__
@@ -191,13 +211,12 @@ def print_debug(instruction, file="Unknown"):
     print(f"""\033[0;31m
 Error in instruction '{instruction["name"]}', at line {line}, in file {file}
 
-  {line}:  {line_pr}
+{a}{b}{c}
 
 Was interpreted as {instruction["name"]}( {', '.join(map(str, instruction["original"]))} )
 
 Documentation for instruction:
-{doc}
-\033[0;0m""")
+{doc}\033[0;0m""")
 
 
 def char_stream_tokenize(stream: iter, _log_name="Tokenizer") -> iter:
@@ -551,7 +570,7 @@ RootedInstructionsStruct = OrderedDict[str, list[InstructionStrut]]
 def token_stream_instruction_press(
         stream: iter,
         project_path: pathlib.Path,
-
+        code_location: pathlib.Path,
         enforce_start=True,
         imported: set = None,
         _log_name="InstructionPress"
@@ -572,7 +591,6 @@ def token_stream_instruction_press(
     while True:
         try:
             token, line = next(stream)
-            print("press", token, "on line", line)
         except StopIteration:
             _log.debug("End of stream")
             break
@@ -676,7 +694,7 @@ def token_stream_instruction_press(
             temp_roots, temp_imported = token_stream_instruction_press(
                 temp_token_stream,
                 project_path,
-
+                code_location=path,
                 enforce_start=False,
                 imported=imported,
                 _log_name=f"{temp_rel_name}.InstructionPress"
@@ -792,7 +810,13 @@ def token_stream_instruction_press(
 
                 raise SystemExit
 
-            roots[current_root].append({"type": "instruction", "name": token, "arguments": [], "line": line})
+            roots[current_root].append({
+                "type": "instruction",
+                "name": token,
+                "arguments": [],
+                "line": line,
+                "originates_from": code_location
+            })
             continue
 
 
@@ -886,7 +910,7 @@ def rooted_instructions_argument_parser(roots: RootedInstructionsStruct) -> Root
                     if instruction_flags & REQUIRED and i >= len(arguments):
                         _log.critical(f"Instruction '{name}' requires at least {instruction.required_arguments} arguments. Exiting.")
 
-                        print_debug(instruction)
+                        print_debug(org)
 
                         raise SystemExit
 
@@ -906,7 +930,7 @@ def rooted_instructions_argument_parser(roots: RootedInstructionsStruct) -> Root
                     ):
                         _log.critical(f"Argument {i} ({arguments[i]}) of instruction {root}: '{name}' must be a valid reference. Exiting.")
 
-                        print_debug(instruction)
+                        print_debug(org)
 
                         raise SystemExit
 
@@ -919,7 +943,7 @@ def rooted_instructions_argument_parser(roots: RootedInstructionsStruct) -> Root
                     ):
                         _log.critical(f"Argument {i} ({arguments[i]}) of instruction '{name}' must be a valid token. Exiting.")
 
-                        print_debug(instruction)
+                        print_debug(org)
 
                         raise SystemExit
 
@@ -1019,7 +1043,7 @@ def full_stack_load_compile(
     token_stream = token_stream_alias_replacer(token_stream)
     token_stream = token_stream_cic_executor(token_stream, project_root, code_location)
 
-    rooted_instructions, imports = token_stream_instruction_press(token_stream, project_root)
+    rooted_instructions, imports = token_stream_instruction_press(token_stream, project_root, code_location)
     rooted_instructions = rooted_instructions_rearranger(rooted_instructions)
     rooted_instructions = rooted_instructions_argument_parser(rooted_instructions)
 

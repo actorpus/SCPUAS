@@ -211,6 +211,32 @@ Important note: no information is technically lost during this process
 as anything that isn't directly assembly is encoded in comments, as of current
 the asm_to_scp.py script does NOT use this information.
 
+## Error messages (WIP)
+There is a mistake in examples/importing.scp, on line 9 the ADD instruction is
+missing the register argument. The error message for this is:
+```
+Error in instruction 'add', at line 8, in file ...\SCPUAS\examples\importing.scp
+
+   7 | load bird.x
+   8 | add 0x01
+       ^^^^^^^^
+   9 | addr RA RB
+
+
+Was interpreted as add( 0x01 )
+
+Documentation for instruction:
+Add:
+    Example            :    add RB 2
+    Addressing mode    :    immediate
+    Opcode             :    0001
+    RTL                :    RX <- RX + ( (K7)8 || KK )
+    Flags set          :    Z,C,O,P,N
+```
+This works by referencing the `__doc__` property of a instruction class.
+NOTE: not all errors have this yet so some will still just CRITICAL:... 
+in the console
+
 # Usage
 Standard usage is as follows, -i is mandatory.
 at least one of -a, -d, -m, -f must be set.
