@@ -50,8 +50,8 @@ class Instruction(type):
             args = args - {
                 "compile",
                 "__module__",
-                "__weakref__",
                 "__doc__",
+                "__weakref__",
                 "__dict__",
             }
             args_by_func = inspect.getfullargspec(_class.compile).args
@@ -121,6 +121,7 @@ class Instruction(type):
                 'required_arguments': len(
                     [arg for arg in arguments if arguments[arg] & REQUIRED]
                 ),
+                '__doc__': _class.__doc__,
                 '__rep__': ref,
                 '__orig_class__': _class,
             }

@@ -32,6 +32,14 @@ instructions: dict[str, Instruction] = {}
 # (the first _ is removed to avoid conflicts with python keywords,
 #  if there is a second underscore it will be replaced with a '.')
 class _move:
+    __doc__ = """Move:
+    Example            :    move RA 1
+    Addressing mode    :    immediate
+    Opcode             :    0000
+    RTL                :    RX <- ( (K7)8 || KK )
+    Flags set          :    None
+    """
+
     # All local variables will be counted as arguments for
     # the instruction, in this case the move instruction
     # can take one or two arguments, the first is a register
@@ -57,6 +65,14 @@ class _move:
 
 @Instruction.create(instructions)
 class _add:
+    __doc__ = """Add:
+    Example            :    add RB 2
+    Addressing mode    :    immediate
+    Opcode             :    0001
+    RTL                :    RX <- RX + ( (K7)8 || KK )
+    Flags set          :    Z,C,O,P,N
+    """
+
     rd = REGISTER | REQUIRED
     kk = VALUE
 
@@ -69,6 +85,14 @@ class _add:
 
 @Instruction.create(instructions)
 class _sub:
+    __doc__ = """Sub:
+    Example            :    sub RC 33
+    Addressing mode    :    immediate
+    Opcode             :    0010
+    RTL                :    RX <- RX - ( (K7)8 || KK )
+    Flags set          :    Z,C,O,P,N
+    """
+    
     rd = REGISTER | REQUIRED
     kk = VALUE
 
@@ -81,6 +105,14 @@ class _sub:
 
 @Instruction.create(instructions)
 class _and:
+    __doc__ = """And:
+    Example            :    and RD 4
+    Addressing mode    :    immediate
+    Opcode             :    0011
+    RTL                :    RX <- RX & ( (0)8 || KK )
+    Flags set          :    Z,C,O,P,N
+    """
+    
     rd = REGISTER | REQUIRED
     kk = VALUE
 
@@ -93,6 +125,13 @@ class _and:
 
 @Instruction.create(instructions)
 class _load:
+    __doc__ = """Load:
+    Example            :    load RA 123
+    Addressing mode    :    absolute
+    Opcode             :    0100
+    RTL                :    RA <- M[AAA]
+    Flags set          :    None
+    """
     aa = VALUE
 
     @staticmethod
@@ -102,6 +141,13 @@ class _load:
 
 @Instruction.create(instructions)
 class _store:
+    __doc__ = """Store:
+    Example            :    store RA 234
+    Addressing mode    :    absolute
+    Opcode             :    0101
+    RTL                :    M[AAA] <- RA
+    Flags set          :    None
+    """
     aa = VALUE
 
     @staticmethod
@@ -111,6 +157,13 @@ class _store:
 
 @Instruction.create(instructions)
 class _addm:
+    __doc__ = """Add Memory:
+    Example            :    addm RA 345
+    Addressing mode    :    absolute
+    Opcode             :    0110
+    RTL                :    RA <- RA + M[AAA]
+    Flags set          :    Z,C,O,P,N
+    """
     aa = VALUE
 
     @staticmethod
@@ -120,6 +173,13 @@ class _addm:
 
 @Instruction.create(instructions)
 class _subm:
+    __doc__ = """Sub Memory:
+    Example            :    subm RA 456
+    Addressing mode    :    absolute
+    Opcode             :    0111
+    RTL                :    RA <- RA - M[AAA]
+    Flags set          :    Z,C,O,P,N
+    """
     aa = VALUE
 
     @staticmethod
@@ -129,6 +189,13 @@ class _subm:
 
 @Instruction.create(instructions)
 class _jump:
+    __doc__ = """Jump:
+    Example            :    jump 200
+    Addressing mode    :    direct
+    Opcode             :    1000
+    RTL                :    PC <- AAA
+    Flags set          :    None
+    """
     aa = VALUE
 
     @staticmethod
@@ -138,6 +205,13 @@ class _jump:
 
 @Instruction.create(instructions)
 class _jumpz:
+    __doc__ = """Jump Zero:
+    Example            :    jumpz 201
+    Addressing mode    :    direct
+    Opcode             :    1001
+    RTL                :    IF Z=1 THEN PC <- AAA ELSE PC <- PC + 1
+    Flags set          :    None
+    """
     aa = VALUE
 
     @staticmethod
@@ -147,6 +221,13 @@ class _jumpz:
 
 @Instruction.create(instructions)
 class _jumpnz:
+    __doc__ = """Jump Not Zero:
+    Example            :    jumpnz 202
+    Addressing mode    :    direct
+    Opcode             :    1010
+    RTL                :    IF Z=0 THEN PC <- AAA ELSE PC <- PC + 1
+    Flags set          :    None
+    """
     aa = VALUE
 
     @staticmethod
@@ -156,6 +237,13 @@ class _jumpnz:
 
 @Instruction.create(instructions)
 class _jumpc:
+    __doc__ = """Jump Carry:
+    Example            :    jumpc 203
+    Addressing mode    :    direct
+    Opcode             :    1011
+    RTL                :    IF C=1 THEN PC <- AAA ELSE PC <- PC + 1
+    Flags set          :    None
+    """
     aa = VALUE
 
     @staticmethod
@@ -165,6 +253,15 @@ class _jumpc:
 
 @Instruction.create(instructions)
 class _call:
+    __doc__ = """Call:
+    Example            :    call 300
+    Addressing mode    :    direct
+    Opcode             :    1100
+    RTL                :    STACK[SP]<- PC + 1
+                       :    SP <- SP + 1
+                       :    PC <- AAA
+    Flags set          :    None
+    """
     aa = VALUE
 
     @staticmethod
@@ -174,6 +271,14 @@ class _call:
 
 @Instruction.create(instructions)
 class _or:
+    __doc__ = """Or:
+    Example            :    or ra 10
+    Addressing mode    :    immediate
+    Opcode             :    1101
+    RTL                :    RX <- RX | ( (0)8 || KK )
+    Flags set          :    Z,C,O,P,N
+    """
+
     rd = REGISTER | REQUIRED
     kk = VALUE
 
@@ -189,6 +294,15 @@ class _or:
 
 @Instruction.create(instructions)
 class _ret:
+    __doc__ = """Return:
+    Example            :    ret
+    Addressing mode    :    direct
+    Opcode             :    1111 + 0000
+    RTL                :    SP <- SP - 1    
+                       :    PC <- STACK[SP]
+    Flags set          :    None
+    """
+
     @staticmethod
     def compile():
         # first in type FxxN
@@ -197,6 +311,13 @@ class _ret:
 
 @Instruction.create(instructions)
 class _mover:
+    __doc__ = """Move (Register):
+    Example            :    move ra rb
+    Addressing mode    :    register
+    Opcode             :    1111 + 0001
+    RTL                :    RX <- RY
+    Flags set          :    None
+    """
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -209,6 +330,13 @@ class _mover:
 
 @Instruction.create(instructions)
 class _loadr:
+    __doc__ = """Load (Register):
+    Example            :    load ra (rb)
+    Addressing mode    :    register indirect
+    Opcode             :    1111 + 0010
+    RTL                :    RX <- M[RY]
+    Flags set          :    None
+    """
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -221,6 +349,13 @@ class _loadr:
 
 @Instruction.create(instructions)
 class _storer:
+    __doc__ = """Store (Register):
+    Example            :    store rb (rc)
+    Addressing mode    :    register indirect
+    Opcode             :    1111 + 0011
+    RTL                :    M[RY] <- RX
+    Flags set          :    None
+    """
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -233,6 +368,13 @@ class _storer:
 
 @Instruction.create(instructions)
 class _rol:
+    __doc__ = """Rotate Left:
+    Example            :    rol rb
+    Addressing mode    :    register
+    Opcode             :    1111 + 0100
+    RTL                :    RX <- ( RX(14:0) || RX(15) )
+    Flags set          :    Z,C,O,P,N
+    """
     rsd = REGISTER | REQUIRED
 
     @staticmethod
@@ -244,6 +386,14 @@ class _rol:
 
 @Instruction.create(instructions)
 class _ror:
+    __doc__ = """Rotate Right:
+    Example            :    ror RB
+    Addressing mode    :    register
+    Opcode             :    1111 + 0101
+    RTL                :    RX <- ( RX(0) || RX(15:1) )
+    Flags set          :    Z,C,O,P,N
+    """
+
     rsd = REGISTER | REQUIRED
 
     @staticmethod
@@ -255,6 +405,13 @@ class _ror:
 
 @Instruction.create(instructions)
 class _addr:
+    __doc__ = """Add (Register):
+    Example            :    add RA RB
+    Addressing mode    :    register
+    Opcode             :    1111 + 0110
+    RTL                :    RX <- RX + RY
+    Flags set          :    Z,C,O,P,N
+    """
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -267,6 +424,13 @@ class _addr:
 
 @Instruction.create(instructions)
 class _subr:
+    __doc__ = """Sub (Register):
+    Example            :    sub RA RB
+    Addressing mode    :    register
+    Opcode             :    1111 + 0111
+    RTL                :    RX <- RX - RY
+    Flags set          :    Z,C,O,P,N
+    """
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -279,6 +443,13 @@ class _subr:
 
 @Instruction.create(instructions)
 class _andr:
+    __doc__ = """And (Register):
+    Example            :    and ra rb
+    Addressing mode    :    register
+    Opcode             :    1111 + 1000
+    RTL                :    RX <- RX & RY
+    Flags set          :    Z,C,O,P,N
+    """
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -291,6 +462,13 @@ class _andr:
 
 @Instruction.create(instructions)
 class _orr:
+    __doc__ = """Or (Register):
+    Example            :    or ra rb
+    Addressing mode    :    register
+    Opcode             :    1111 + 1001
+    RTL                :    RX <- RX | RY
+    Flags set          :    Z,C,O,P,N
+    """
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -303,6 +481,13 @@ class _orr:
 
 @Instruction.create(instructions)
 class _xorr:
+    __doc__ = """Xor (Register):
+    Example            :    xor ra rb
+    Addressing mode    :    register
+    Opcode             :    1111 + 1010
+    RTL                :    RX <- RX + RY    
+    Flags set          :    Z,C,O,P,N
+    """
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -315,6 +500,13 @@ class _xorr:
 
 @Instruction.create(instructions)
 class _asl:
+    __doc__ = """Arithmetic Shift Left:  
+    Example            :    asl rb
+    Addressing mode    :    register
+    Opcode             :    1111 + 1011
+    RTL                :    RX <- ( RX(14:0) || 0 )
+    Flags set          :    Z,C,O,P,N
+    """
     rd = REGISTER | REQUIRED
 
     @staticmethod

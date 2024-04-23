@@ -35,8 +35,21 @@ def swap(name):
     while new_code.startswith("\n"):
         new_code = new_code[1:]
 
-    # replace dead RA calls
     new_code = new_code.replace("\t", "    ")
+
+    # swap all register commands for the new versions
+    for _ in "ABCDEFGHIJKLMNOP":
+        for __ in "ABCDEFGHIJKLMNOP":
+            new_code = new_code.replace(f"move R{_} R{__}", f"mover R{_} R{__}")
+            new_code = new_code.replace(f"load R{_} (R{__})", f"loadr R{_} R{__}")
+            new_code = new_code.replace(f"store R{_} (R{__})", f"storer R{_} R{__}")
+            new_code = new_code.replace(f"add R{_} R{__}", f"addr R{_} R{__}")
+            new_code = new_code.replace(f"sub R{_} R{__}", f"subr R{_} R{__}")
+            new_code = new_code.replace(f"and R{_} R{__}", f"andr R{_} R{__}")
+            new_code = new_code.replace(f"or R{_} R{__}", f"orr R{_} R{__}")
+            new_code = new_code.replace(f"xor R{_} R{__}", f"xorr R{_} R{__}")
+
+    # replace dead RA calls
     new_code = new_code.replace("load RA", "load")
     new_code = new_code.replace("store RA", "store")
     new_code = new_code.replace("addm RA", "addm")
@@ -45,18 +58,6 @@ def swap(name):
     new_code = new_code.replace("jumpz RA", "jumpz")
     new_code = new_code.replace("jumpnz RA", "jumpnz")
     new_code = new_code.replace("call RA", "call")
-
-    # swap all register commands for the new versions
-    for _ in "ABCDEFGHIJKLMNOP":
-        for __ in "ABCDEFGHIJKLMNOP":
-            new_code = new_code.replace(f"move R{_} R{__}", f"mover R{_} R{__}")
-            new_code = new_code.replace(f"load R{_} R{__}", f"loadr R{_} R{__}")
-            new_code = new_code.replace(f"store R{_} R{__}", f"storer R{_} R{__}")
-            new_code = new_code.replace(f"add R{_} R{__}", f"addr R{_} R{__}")
-            new_code = new_code.replace(f"sub R{_} R{__}", f"subr R{_} R{__}")
-            new_code = new_code.replace(f"and R{_} R{__}", f"andr R{_} R{__}")
-            new_code = new_code.replace(f"or R{_} R{__}", f"orr R{_} R{__}")
-            new_code = new_code.replace(f"xor R{_} R{__}", f"xorr R{_} R{__}")
 
         # new_code = new_code.replace(f"asl R{_} R{__}", f"aslr R{_} R{__}")
 

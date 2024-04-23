@@ -6,6 +6,7 @@
 import logging
 import pathlib
 import random
+import time
 from collections import OrderedDict
 from typing import *
 from types import ModuleType
@@ -48,21 +49,33 @@ aliases = {".randomname": '__import__("random").randbytes(16).hex()'}
 
 
 class RegisterRef:
-    def __init__(self, argument: str):
+    def __init__(self, argument: str, _instruction=None):
         _log = logging.getLogger("RegisterRefInit")
 
         argument = argument.upper()
 
         if len(argument) != 2:
             _log.critical(f"Register reference '{argument}' is not 2 characters long. Exiting.")
+
+            if _instruction is not None:
+                print_debug(_instruction)
+
             raise SystemExit
 
         if argument[0] != "R":
             _log.critical(f"Register reference '{argument}' does not start with 'R'. Exiting.")
+
+            if _instruction is not None:
+                print_debug(_instruction)
+
             raise SystemExit
 
         if argument[1] not in "ABCDEFGHIJKLMNOP":
             _log.critical(f"Register reference '{argument}' is not a valid register. Exiting.")
+
+            if _instruction is not None:
+                print_debug(_instruction)
+
             raise SystemExit
 
         self.value = ord(argument[1]) - 65
@@ -112,7 +125,7 @@ def token_stream_alias_replacer(stream: iter, _log_name="AliasReplace") -> iter:
 
     while True:
         try:
-            token = next(stream)
+            token, line = next(stream)
         except StopIteration:
             _log.debug("End of stream")
             break
@@ -125,7 +138,7 @@ def token_stream_alias_replacer(stream: iter, _log_name="AliasReplace") -> iter:
 
             token = nt
 
-        yield token
+        yield (token, line)
 
 
 class TokenizeError(Exception):
@@ -157,12 +170,44 @@ class TokenizeError(Exception):
 """
 
 
+def print_debug(instruction, file="Unknown"):
+    # incase logging is going to console ensures the debug is visible
+    time.sleep(0.2)
+
+    if 'line' not in instruction:
+        line_pr = "Unable to find line"
+        line = "Unknown"
+    else:
+        # Will at some point reload the file and get the line
+        line_pr = "Unable to load line from file"
+        line = instruction['line']
+
+    if Instructions[instruction["name"]].__doc__ is not None:
+        doc = Instructions[instruction["name"]].__doc__
+
+    else:
+        doc = "No documentation found"
+
+    print(f"""\033[0;31m
+Error in instruction '{instruction["name"]}', at line {line}, in file {file}
+
+  {line}:  {line_pr}
+
+Was interpreted as {instruction["name"]}( {', '.join(map(str, instruction["original"]))} )
+
+Documentation for instruction:
+{doc}
+\033[0;0m""")
+
+
 def char_stream_tokenize(stream: iter, _log_name="Tokenizer") -> iter:
     _log = logging.getLogger(_log_name)
 
     memory = ["\x00" for _ in range(10)]
     token = ""
     delimiters = [" ", "\n"]
+
+    line = 0
 
     inside_block_code = False
     inside_line_code = False
@@ -179,6 +224,9 @@ def char_stream_tokenize(stream: iter, _log_name="Tokenizer") -> iter:
 
         if not char or char is None:
             break
+
+        if char == "\n":
+            line += 1
 
         if memory[-1:] == ["\\"]:
             token += char
@@ -257,16 +305,16 @@ def char_stream_tokenize(stream: iter, _log_name="Tokenizer") -> iter:
             inside_line_comment = False
             continue
 
-        if char in delimiters and not (
-                inside_block_comment
-                or inside_line_comment
-                or inside_block_code
-                or inside_line_code
-                or inside_string
-        ):
+        if char in delimiters and not any([
+            inside_block_comment,
+            inside_line_comment,
+            inside_block_code,
+            inside_line_code,
+            inside_string
+        ]):
             if token:
                 _log.debug("Token: %s", token)
-                yield token
+                yield (token, line)
 
             token = ""
             continue
@@ -278,7 +326,7 @@ def char_stream_tokenize(stream: iter, _log_name="Tokenizer") -> iter:
             token += char
 
     if token:
-        yield token
+        yield (token, line)
 
 
 # store different scope for each file loaded and executed
@@ -424,13 +472,12 @@ def token_stream_cic_executor(stream: iter, project_root, executing_from, _log_n
 
     while True:
         try:
-            token = next(stream)
+            token, line = next(stream)
         except StopIteration:
             _log.debug("End of stream")
             break
 
         opp = "{{" in token or "{!" in token
-
 
         while "{!" in token:
             start = token.index("{!")
@@ -483,7 +530,7 @@ def token_stream_cic_executor(stream: iter, project_root, executing_from, _log_n
             token = token[:start] + str(result) + token[end + 2:]
 
         if not opp:
-            yield token
+            yield (token, line)
             continue
 
         # catch up result to where we are now
@@ -494,8 +541,8 @@ def token_stream_cic_executor(stream: iter, project_root, executing_from, _log_n
         temp_token_stream = char_stream_tokenize(temp_char_stream, _log_name=f"{log_name}.Tokenizer")
         temp_token_stream = token_stream_alias_replacer(temp_token_stream, _log_name=f"{log_name}.AliasReplace")
 
-        for t in temp_token_stream:
-            yield t
+        for t, _ in temp_token_stream:
+            yield (t, _)
 
 
 RootedInstructionsStruct = OrderedDict[str, list[InstructionStrut]]
@@ -524,7 +571,8 @@ def token_stream_instruction_press(
 
     while True:
         try:
-            token = next(stream)
+            token, line = next(stream)
+            print("press", token, "on line", line)
         except StopIteration:
             _log.debug("End of stream")
             break
@@ -534,8 +582,8 @@ def token_stream_instruction_press(
 
         # system commands must continue at end
         if token == "-alias":
-            alias = next(stream, None)
-            value = next(stream, None)
+            alias, _ = next(stream, None)
+            value, _ = next(stream, None)
 
             _log.info(f"Found alias '{alias}' with value '{value}'.")
             aliases[alias] = value
@@ -543,7 +591,7 @@ def token_stream_instruction_press(
             continue
 
         if token == "-language":
-            location = next(stream, None)
+            location, _ = next(stream, None)
 
             _log.debug(f"Requesting language file at '{location}'.")
 
@@ -597,7 +645,7 @@ def token_stream_instruction_press(
             continue
 
         if token == "-include":
-            location = next(stream, None)
+            location, _ = next(stream, None)
 
             _log.info(f"Including file from '{location}'")
             path = pathlib.Path(location)
@@ -706,6 +754,9 @@ def token_stream_instruction_press(
                     len(roots[current_root][-1]["arguments"]) < Instructions[roots[current_root][-1]["name"]].required_arguments
             ):
                 _log.critical(f"Found root '{token[:-1]}' before the required arguments of the previous instruction were filled. Exiting.")
+
+                print_debug(roots[current_root][-1])
+
                 raise SystemExit
 
             # Root
@@ -736,9 +787,12 @@ def token_stream_instruction_press(
             # If the last instruction does not have at-least the required number of arguments
             if roots[current_root] and len(roots[current_root][-1]["arguments"]) < Instructions[roots[current_root][-1]["name"]].required_arguments:
                 _log.critical(f"Found instruction '{token}' before the required arguments of the previous instruction were filled. Exiting.")
+
+                print_debug(roots[current_root][-1])
+
                 raise SystemExit
 
-            roots[current_root].append({"type": "instruction", "name": token, "arguments": []})
+            roots[current_root].append({"type": "instruction", "name": token, "arguments": [], "line": line})
             continue
 
 
@@ -823,6 +877,7 @@ def rooted_instructions_argument_parser(roots: RootedInstructionsStruct) -> Root
             if instruction["type"] == "instruction":
                 name = instruction["name"]
                 arguments = instruction["arguments"]
+                org = instruction.copy()
                 instruction = Instructions[name]
 
                 for i in range(instruction.total_arguments):
@@ -830,6 +885,9 @@ def rooted_instructions_argument_parser(roots: RootedInstructionsStruct) -> Root
 
                     if instruction_flags & REQUIRED and i >= len(arguments):
                         _log.critical(f"Instruction '{name}' requires at least {instruction.required_arguments} arguments. Exiting.")
+
+                        print_debug(instruction)
+
                         raise SystemExit
 
                     if i >= len(arguments):
@@ -839,7 +897,7 @@ def rooted_instructions_argument_parser(roots: RootedInstructionsStruct) -> Root
                         continue
 
                     if instruction_flags & REGISTER:
-                        arguments[i] = RegisterRef(arguments[i])
+                        arguments[i] = RegisterRef(arguments[i], org)
                         _log.debug(f"For {root}: {name}, Converted argument {i} to register reference.")
 
                     if (
@@ -847,6 +905,9 @@ def rooted_instructions_argument_parser(roots: RootedInstructionsStruct) -> Root
                             and arguments[i] not in [_.replace("~", "") for _ in roots]
                     ):
                         _log.critical(f"Argument {i} ({arguments[i]}) of instruction {root}: '{name}' must be a valid reference. Exiting.")
+
+                        print_debug(instruction)
+
                         raise SystemExit
 
                     arguments[i] = parse_dynamic_token(arguments[i])
@@ -857,6 +918,9 @@ def rooted_instructions_argument_parser(roots: RootedInstructionsStruct) -> Root
                             and arguments[i] not in [_.replace("~", "") for _ in roots]
                     ):
                         _log.critical(f"Argument {i} ({arguments[i]}) of instruction '{name}' must be a valid token. Exiting.")
+
+                        print_debug(instruction)
+
                         raise SystemExit
 
     return roots
@@ -1149,7 +1213,7 @@ def generate_dec(roots: RootedInstructionsStruct, imports: set[pathlib.Path], pr
     # Encodes name and arguments into a hex string
     dead_instructions = [
         f"\n# DeadInstruction{k}:\n# {
-        "".join([_ + ("\n# " if (i + 1) % 48 == 0 else "") 
+        "".join([_ + ("\n# " if (i + 1) % 48 == 0 else "")
                  for i, _ in enumerate(":".join(_.encode().hex().upper() for _ in [v['name']] + v['original']))
                  ])
         }" for k, v in dead_instructions.items()

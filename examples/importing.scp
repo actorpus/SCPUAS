@@ -6,7 +6,7 @@
 start:
     jump string.standard.helloworld
     load bird.x
-    add RA 4
+    add 4
     addr RA RB
 
 {!
