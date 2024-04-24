@@ -780,6 +780,7 @@ def token_stream_instruction_press(
             # Root
             roots[token[:-1]] = []
             current_root = token[:-1]
+            in_subroot = None
             continue
 
         # Insert 'start' root if no roots are defined yet
@@ -1199,16 +1200,23 @@ def generate_dec(roots: RootedInstructionsStruct, imports: set[pathlib.Path], pr
                     re_interp = parse_dynamic_token(orig_arg)
 
                     if isinstance(re_interp, int):
-                        args.append(f"0x{re_interp:04x}")
-                        continue
+                        # args.append(f"0x{re_interp:04x}")
+                        # continue
+                        re_interp = f"0x{re_interp:04x}"
+
+                    if isinstance(re_interp, RegisterRef):
+                        # args.append(re_interp.value)
+                        # continue
+                        re_interp = re_interp.value
 
                     if isinstance(re_interp, str):
+                        if instruction["name"] in ["loadr", "storer"] and i == 1:
+                            re_interp = f"({re_interp})"
+
                         args.append(re_interp)
                         continue
 
-                    if isinstance(re_interp, RegisterRef):
-                        args.append(re_interp.value)
-                        continue
+
 
                     _log.critical(f"Unknown argument type '{re_interp}' for argument {i} of instruction '{instruction['name']}'. Exiting.")
                     raise SystemExit

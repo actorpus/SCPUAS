@@ -187,8 +187,17 @@ class CPU:
         self.__stack_pointer -= 1
         self.__pc = self.__stack[self.__stack_pointer]
 
-    # def _MOVER(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
-    # def _LOADR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
+    def _MOVER(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
+        dest = ir11 << 1 | ir10
+        src = ir09 << 1 | ir08
+
+        self.__registers[dest] = self.__registers[src]
+    def _LOADR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
+        dest = ir11 << 1 | ir10
+        src = ir09 << 1 | ir08
+
+        self.__registers[dest] = self._memory[self.__registers[src]]
+
     # def _STORER(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
     # def _ROL(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
     # def _ROR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
@@ -206,8 +215,8 @@ class CPU:
         if ir15ir12 == 0b1111:
             return {
                 0b0000: self._RET,
-                # 0b0001: self._MOVER,
-                # 0b0010: self._LOADR,
+                0b0001: self._MOVER,
+                0b0010: self._LOADR,
                 # 0b0011: self._STORER,
                 # 0b0100: self._ROL,
                 # 0b0101: self._ROR,
@@ -271,6 +280,7 @@ class CPU:
         while self.running:
             if not self.enabled:
                 time.sleep(1)
+                self.running_at = "~ KHz"
                 continue
 
             self._fetch()
@@ -300,7 +310,11 @@ class RemoteControl(threading.Thread):
 
         def _check_changes(self, key, value):
             if key in self._rc._watching:
-                self._rc._lines.append(f"\033[31mMemory\033[0m {key:03x}: {self._old_data.get(key, 0):04x} -> {value:04x}")
+                w = ""
+                if value in range(32, 127):
+                    w = f" '{chr(value)}'"
+
+                self._rc._lines.append(f"\033[31mMemory\033[0m {key:03x}: {self._old_data.get(key, 0):04x} -> {value:04x}{w}")
                 self._old_data[key] = value
 
         def run(self):
@@ -342,7 +356,7 @@ class RemoteControl(threading.Thread):
 
     def render(self):
         # Clear screen, reset cursor, reset colors, underline
-        out = '\033[2J\033[H\033[0m\033[4m Remote Control \033[0m' + ' ' * (self._screen_size[0] - 16 - 6) + 'V0.0.0\r\n'
+        out = '\033[2J\033[H\033[0m\033[4m Remote Control \033[0m' + ' ' * (self._screen_size[0] - 16 - 4) + 'I001\r\n'
 
         lines = self._lines[-(self._screen_size[1] - 3):]
 
@@ -487,7 +501,7 @@ class RemoteControl(threading.Thread):
 
 
 if __name__ == "__main__":
-    os.system(r".\..\.venv\Scripts\python.exe .\..\assembler.py -i .\emulator_test.scp -a .\tmp")
+    os.system(r".\..\.venv\Scripts\python.exe .\..\assembler.py -i .\emulator_test.scp -a .\tmp -V")
     os.remove(r".\tmp_high_byte.asc")
     os.remove(r".\tmp_low_byte.asc")
 

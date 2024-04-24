@@ -24,11 +24,25 @@ start:
     sub RA 1
     store var.count
     jumpnz start
-exit:
-    jump exit
+    jump word
 
-var:
+.var:
     .data -a 1
     .data -b 1
     .data -temp 0
     .data -count 10
+    .strn -word "Hello World!"
+
+
+.word:
+    move RB var.word
+    loadr -loop RA RB
+    jumpz exit
+    add RB 1
+    store $portA$
+    jump word.loop
+
+exit:
+    move RA 0
+    store $portA$
+    jump -exit_loop exit.exit_loop

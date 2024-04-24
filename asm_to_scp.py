@@ -38,8 +38,8 @@ def swap(name):
     new_code = new_code.replace("\t", "    ")
 
     # swap all register commands for the new versions
-    for _ in "ABCDEFGHIJKLMNOP":
-        for __ in "ABCDEFGHIJKLMNOP":
+    for _ in "ABCD":
+        for __ in "ABCD":
             new_code = new_code.replace(f"move R{_} R{__}", f"mover R{_} R{__}")
             new_code = new_code.replace(f"load R{_} (R{__})", f"loadr R{_} R{__}")
             new_code = new_code.replace(f"store R{_} (R{__})", f"storer R{_} R{__}")
@@ -204,7 +204,7 @@ if __name__ == '__main__':
 
     # call m4
     f = open(".tmp.m4.asm", "w")
-    subprocess.run(["m4"] + sys.argv[1:-1], stdout=f)
+    subprocess.run(["./bin/m4"] + sys.argv[1:-1], stdout=f)
     f.close()
 
     code = swap(".tmp.m4.asm")
