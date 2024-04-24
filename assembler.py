@@ -953,6 +953,9 @@ def rooted_instructions_argument_parser(roots: RootedInstructionsStruct) -> Root
 def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> tuple[list[str], RootedInstructionsStruct]:
     _log = logging.getLogger("Compiler")
 
+    # 0. Press ~ out of roots
+    pressed_roots = [_.replace('~', '') for _ in roots]
+
     # 1. compile all instructions with dummy references
     for root in roots:
         for instruction in roots[root]:
@@ -963,7 +966,7 @@ def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> tuple[list[
                 flags = list(Inst.arguments.values())[i]
                 arg = instruction['arguments'][i]
 
-                if arg in roots:
+                if arg in pressed_roots:
                     dummy_args.append(0)
                     continue
 
@@ -980,7 +983,7 @@ def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> tuple[list[
                     continue
 
                 else:
-                    _log.critical(f"Unknown argument type '{flags}' for argument {root}: {instruction['name']}. Exiting.")
+                    _log.critical(f"Unknown argument type '{flags}' for argument {root}: {instruction['name']}<-{arg}. Exiting.")
                     raise SystemExit
 
             instruction['length'] = len(Inst.compile(*dummy_args))
@@ -1010,7 +1013,7 @@ def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> tuple[list[
                     args[i] = args[i].value
                     continue
 
-                if args[i] in roots:
+                if args[i] in pressed_roots:
                     args[i] = indexed_roots[args[i]]
                     continue
 

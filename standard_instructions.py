@@ -126,49 +126,49 @@ class _and:
 @Instruction.create(instructions)
 class _load:
     __doc__ = """Load:
-    Example            :    load RA 123
+    Example            :    load 123
     Addressing mode    :    absolute
     Opcode             :    0100
     RTL                :    RA <- M[AAA]
     Flags set          :    None
     """
-    aa = VALUE
+    aaa = VALUE
 
     @staticmethod
-    def compile(aa=0):
-        return f"4{aa:03x}"
+    def compile(aaa=0):
+        return f"4{aaa:03x}"
 
 
 @Instruction.create(instructions)
 class _store:
     __doc__ = """Store:
-    Example            :    store RA 234
+    Example            :    store 234
     Addressing mode    :    absolute
     Opcode             :    0101
     RTL                :    M[AAA] <- RA
     Flags set          :    None
     """
-    aa = VALUE
+    aaa = VALUE
 
     @staticmethod
-    def compile(aa=0):
-        return f"5{aa:03x}"
+    def compile(aaa=0):
+        return f"5{aaa:03x}"
 
 
 @Instruction.create(instructions)
 class _addm:
     __doc__ = """Add Memory:
-    Example            :    addm RA 345
+    Example            :    addm 345
     Addressing mode    :    absolute
     Opcode             :    0110
     RTL                :    RA <- RA + M[AAA]
     Flags set          :    Z,C,O,P,N
     """
-    aa = VALUE
+    aaa = VALUE
 
     @staticmethod
-    def compile(aa=0):
-        return f"6{aa:03x}"
+    def compile(aaa=0):
+        return f"6{aaa:03x}"
 
 
 @Instruction.create(instructions)
