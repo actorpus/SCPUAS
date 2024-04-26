@@ -789,7 +789,7 @@ if __name__ == "__main__":
     # starts itself
 
     for _ in [
-        r"ss 80 50",  # can be changed in putty settings
+        # r"ss 80 50",  # can be changed in putty settings
         r"loadscp .\examples\emulator_test.scp",
         r"watch 0xFFF",
         r"loadimg .\image.ppm 1024",
