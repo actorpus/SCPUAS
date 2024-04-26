@@ -416,6 +416,8 @@ class CPU(threading.Thread):
                 self._running_at = f"{1 / s / 1000:.2f} kHz"
                 i, t = 0, c
 
+        print(f"[CPU] Stopped")
+
 
 class PygameScreen:
     def __init__(self, cpu_ref: CPU):
@@ -469,6 +471,8 @@ class PygameScreen:
             pygame.display.flip()
             self._clock.tick(30)
 
+        print(f"[PS] Stopped")
+
 
 class RemoteControl(threading.Thread):
     class _NonBlocked(threading.Thread):
@@ -476,6 +480,8 @@ class RemoteControl(threading.Thread):
             super().__init__()
             self._client = client
             self._rc = rc
+
+            self._running = True
 
             self._old_data = {}
             self._rc._cpu._memory.mem_change_hook = lambda key, value: self._check_changes(key, value)
@@ -495,7 +501,7 @@ class RemoteControl(threading.Thread):
         def run(self):
             print(f"[RC.NB] Started")
 
-            while True:
+            while self._running:
                 try:
                     self._client.send(self._rc.render())
                 except ConnectionAbortedError:
@@ -503,15 +509,21 @@ class RemoteControl(threading.Thread):
                     self._rc._cpu.enabled = False
                     self._rc._cpu.running = False
                     self._rc._screen._running = False
+                    self._running = False
+                    self._rc._running = False
                     break
                 except ConnectionResetError:
                     print(f"[RC.NB] Connection closed")
                     self._rc._cpu.enabled = False
                     self._rc._cpu.running = False
                     self._rc._screen._running = False
+                    self._running = False
+                    self._rc._running = False
                     break
 
                 time.sleep(0.1)
+
+            print(f"[RC.NB] Stopped")
 
     def __init__(self, cpu_ref: CPU, screen_ref: PygameScreen):
         super().__init__()
@@ -529,6 +541,8 @@ class RemoteControl(threading.Thread):
         self._cur_command = ''
         self._watching = []
         self._last_command = ''
+
+        self._running = True
 
         self.start()
 
@@ -706,6 +720,14 @@ class RemoteControl(threading.Thread):
             self._cur_command = ''
             return
 
+        if self._cur_command.startswith("exit"):
+            self._cpu.enabled = False
+            self._cpu.running = False
+            self._screen._running = False
+            self._running = False
+            self._nonblocked._running = False
+            return
+
         self._lines.append(f"Unknown command: {self._cur_command}")
         self._last_command = self._cur_command
         self._cur_command = ''
@@ -745,7 +767,7 @@ class RemoteControl(threading.Thread):
         self._nonblocked.start()
         self._stop_blocking = False
 
-        while True:
+        while self._running:
             try:
                 data = client.recv(1)
             except ConnectionAbortedError:
@@ -779,6 +801,8 @@ class RemoteControl(threading.Thread):
 
                     self._lines.append(f"\033[31mError\033[0m {e}")
 
+        print(f"[RC] Stopped")
+
 
 if __name__ == "__main__":
     cpu = CPU()
@@ -800,3 +824,5 @@ if __name__ == "__main__":
 
     cpu.start()
     screen.run()
+
+
