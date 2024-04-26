@@ -859,7 +859,7 @@ def rooted_instructions_pre_computer(roots: RootedInstructionsStruct, imported, 
 
                 temp_precomputed: str = Instructions[instruction['name']].precompute_compile(
                     *instruction['arguments'],
-                    _root = new_root_name.replace("~", "")
+                    _root = new_root_name.replace("~", "").replace(".", "")
                 )
 
                 temp_precomputed = temp_precomputed.replace("~insert", new_root_name)

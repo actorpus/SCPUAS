@@ -224,8 +224,11 @@ class CPU(threading.Thread):
 
         self.__pc = value
 
-    # def _OR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
-    # def _XOP1(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
+    def _OR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
+        raise NotImplementedError
+
+    def _XOP1(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
+        raise NotImplementedError
     def _RET(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         self.__stack_pointer -= 1
         self.__pc = self.__stack[self.__stack_pointer]
@@ -303,10 +306,31 @@ class CPU(threading.Thread):
 
         self.__registers[dest] = v & 0xFFFF
 
-    # def _ANDR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
-    # def _ORR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
-    # def _XORR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
-    # def _ASLR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
+    def _ANDR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
+        raise NotImplementedError
+
+    def _ORR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
+        raise NotImplementedError
+
+    def _XORR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
+        raise NotImplementedError
+
+    def _ASLR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
+        raise NotImplementedError
+
+
+    def _XOP2(self, ir11, ir10, ir09, ir08, ir08ir04, ir03ir00):
+        raise NotImplementedError
+
+    def _XOP3(self, ir11, ir10, ir09, ir08, ir08ir04, ir03ir00):
+        raise NotImplementedError
+
+    def _XOP4(self, ir11, ir10, ir09, ir08, ir08ir04, ir03ir00):
+        raise NotImplementedError
+
+    def _XOP5(self, ir11, ir10, ir09, ir08, ir08ir04, ir03ir00):
+        raise NotImplementedError
+
 
     def _decode_instruction_rel_func(self, ir):
         ir15ir12 = ir >> 12
@@ -322,14 +346,14 @@ class CPU(threading.Thread):
                 0b0101: self._ROR,
                 0b0110: self._ADDR,
                 0b0111: self._SUBR,
-                # 0b1000: self._ANDR,
-                # 0b1001: self._ORR,
-                # 0b1010: self._XORR,
-                # 0b1011: self._ASLR,
-                # 0b1100: self._XOP2,
-                # 0b1101: self._XOP3,
-                # 0b1110: self._XOP4,
-                # 0b1111: self._XOP5,
+                0b1000: self._ANDR,
+                0b1001: self._ORR,
+                0b1010: self._XORR,
+                0b1011: self._ASLR,
+                0b1100: self._XOP2,
+                0b1101: self._XOP3,
+                0b1110: self._XOP4,
+                0b1111: self._XOP5,
             }[ir04ir00]
 
         return {
@@ -346,8 +370,8 @@ class CPU(threading.Thread):
             0b1010: self._JUMPNZ,
             0b1011: self._JUMPC,
             0b1100: self._CALL,
-            # 0b1101: self._OR,
-            # 0b1110: self._XOP1,
+            0b1101: self._OR,
+            0b1110: self._XOP1,
         }[ir15ir12]
 
     def _fetch(self):

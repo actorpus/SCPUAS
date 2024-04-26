@@ -3,7 +3,11 @@
 -alias portA 0xFFF
 
 #/
-Fibonacci series generator
+Emulator test.
+
+start,   print the first 10 fibonacci numbers
+word,    print "Hello World!"
+copyimg, copies a green only image to a new image
 
 watch 0xFFF for the output
 /#
@@ -48,8 +52,8 @@ start:
 
 
 .copyimg:
-    load var.image1
-    # store 0xffe # enable emulator debug mode
+    # enable emulator debug mode
+    # store 0xffe
 
     load var.image1
     mover RB RA
@@ -69,17 +73,12 @@ start:
         mover RC RA
         add RB 1
 
-        # g - (r + b)
-
-        # and RA 0b0000011111100000
+        # and RA 0b0000011111100000 (and instruction takes max 8
+        # bits so have to shift down then back up)
         ror RA
         ror RA
         ror RA
-        ror RA
-        ror RA
-        and RA 0b00000111111
-        rol RA
-        rol RA
+        and RA 0b0000011111100
         rol RA
         rol RA
         rol RA
@@ -89,12 +88,7 @@ start:
         storer RA RD
         add RD 1
 
-
         jump copyimg.loop
 
-
-exit:
-    move RA 0xff
-    store $portA$
+.exit:
     .halt
-    move RA 0xff
