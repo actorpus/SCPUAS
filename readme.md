@@ -314,7 +314,7 @@ See [emulator.md](emulator.md)
 
 -----
 
-Feel free to contribute, all pr's are appreciated.
+Feel free to contribute, all pr's are appreciated. Remember to update the readme
 
 'if it works, dont touch it, if it doesn't work, rewrite it from scratch' - rewrite number 14 :)
 
