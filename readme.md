@@ -8,7 +8,7 @@ Made primarily because M4 sucks ass and i refuse to use it. Has a couple
 nice quality of life features as well, I recommend reading this entire
 page before using it.
 
-NOTE: for sys1 people we haven't officially learnt about multiple registers so treat instructions like `and RA 1` as `and 1`
+Minimum python version: 3.12
 
 # Features / How to
 ## Comments
@@ -41,6 +41,40 @@ Language files are one of the primary replacements for M4, custom instructions c
 take any arguments, included references, and can compile to any number of instructions.
 A good example of this is the .sprite instruction in `examples/sprite.py`, much easier
 read and write than the M4 equivalent.
+
+New instructions can be added in a form like. Note how the inputs to the compile function
+are in the correct order and have the correct names, this is important.
+```python
+@Instruction.create(instructions)
+class _sub:
+    __doc__ = "Documentation on the instruction"
+
+    rd = REGISTER | REQUIRED
+    kk = VALUE
+
+    @staticmethod
+    def compile(rd, kk=0):
+        reg = rd << 2
+
+        return f"2{reg:1x}{kk:02x}"
+```
+They can also be created like
+```python
+@Instruction.create(instructions)
+@Instruction.precompute
+class __halt:
+    @staticmethod
+    def compile(_root, *args):
+        return f"""
+~insert:
+    jump -HALT {_root}.HALT
+"""
+```
+The `@Instruction.precompute` decorator is used to create instructions that are not
+directly mapped to a cpu instruction. These are expanded and reassembled at assembly.
+precompiled instructions can either create there own roots or use the `~insert` root
+to add instructions to the current root. _root is the only current passed argument
+but add *args incase more are added in the future.
 
 
 ## Subroots / OO style references
@@ -211,6 +245,12 @@ Important note: no information is technically lost during this process
 as anything that isn't directly assembly is encoded in comments, as of current
 the asm_to_scp.py script does NOT use this information.
 
+## Debug assembler
+One of the options (-P or --debug_output) will output a .debug file containing
+the scp assembly, the compiled instructions, and a breakdown of the compiled
+instructions. mostly useful for debugging the assembler. but could be useful
+for checking how custom instructions are compiled.
+
 ## Error messages (WIP)
 There is a mistake in examples/importing.scp, on line 9 the ADD instruction is
 missing the register argument. The error message for this is:
@@ -242,16 +282,23 @@ Standard usage is as follows, -i is mandatory.
 at least one of -a, -d, -m, -f must be set.
 -A and -R are optional.
 ```commandline
-assembler.py -i <file>                scp file
-             -A <address offset>
-             -a <filename>            generate asc files (includes high and low)
-             -d <filename>            generate dat file
-             -m <filename>            generate mem file
-             -f <filename>            generate mif file
-             -o <filename>            output file (similar to the old assembler this will output ALL types)
-             -D <filename>            generate .asm file (disassembly for original format)
-             -v <verbose>
-             -V <very verbose>
+assembler.py
+
+  Options:
+    -h, --help                             Display this help message and exit
+ *  -i, --input          <file>            Input file (required)
+    -A, --Address_offset <address offset>  Set address offset
+    -a, --asc_output     <filename>        Generate asc files (includes high and low)
+    -d, --dat_output     <filename>        Generate dat file
+    -m, --mem_output     <filename>        Generate mem file
+    -f, --mif_output     <filename>        Generate mif file
+    -D, --dec_output     <filename>        Generate .asm file (disassembly for original format)
+    -P, --debug_output   <filename>        Generate debug file
+    -o, --output         <filename>        Output file (similar to the old assembler this will output ALL types)
+    -R, --Root           <project root>    Set project root (if you're initial file is not compiling from the project root)
+    -v, --verbose
+    -V, --super_verbose
+
 ```
 Example:
 ```commandline
@@ -261,6 +308,9 @@ assembler.py -i examples/pong.scp
 ```
 Will create the files `examples/pong.asc`, `examples/pong_high_byte.asc`, `examples/pong_low_byte.asc`
 
+
+# Emulator
+See [emulator.md](emulator.md)
 
 -----
 

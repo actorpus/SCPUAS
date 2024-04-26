@@ -16,10 +16,9 @@ it is not possible to change the length of the instruction('s output)
 based on reference arguments.
 """
 
-from scp_instruction import Instruction, REQUIRED, REGISTER, VALUE, UNCHECKED, REFERENCE
 import logging
-import sys
 
+from scp_instruction import Instruction, REQUIRED, REGISTER, VALUE, UNCHECKED
 
 _log = logging.getLogger("DefaultInstructions")
 instructions: dict[str, Instruction] = {}
@@ -27,7 +26,6 @@ instructions: dict[str, Instruction] = {}
 
 # add the following class as an instruction
 @Instruction.create(instructions)
-
 # the name of the class is the name of the instruction
 # (the first _ is removed to avoid conflicts with python keywords,
 #  if there is a second underscore it will be replaced with a '.')
@@ -92,7 +90,7 @@ class _sub:
     RTL                :    RX <- RX - ( (K7)8 || KK )
     Flags set          :    Z,C,O,P,N
     """
-    
+
     rd = REGISTER | REQUIRED
     kk = VALUE
 
@@ -112,7 +110,7 @@ class _and:
     RTL                :    RX <- RX & ( (0)8 || KK )
     Flags set          :    Z,C,O,P,N
     """
-    
+
     rd = REGISTER | REQUIRED
     kk = VALUE
 
@@ -216,6 +214,8 @@ class _jumpz:
 
     @staticmethod
     def compile(aa=0):
+        logging.debug(f"Jump Zero compiling 9 {aa}")
+
         return f"9{aa:03x}"
 
 
@@ -510,7 +510,7 @@ class _asl:
     rd = REGISTER | REQUIRED
 
     @staticmethod
-    def compile(rd,):
+    def compile(rd, ):
         value = rd << 2
 
         return f"F{value:1x}0B"
@@ -540,6 +540,7 @@ class __data:
             data = eval(data)
 
         return f"{data:04x}"
+
 
 @Instruction.create(instructions)
 class __chr:
@@ -596,6 +597,21 @@ class __strn:
             data = data[:-1]
 
         return [f"{ord(char):04x}" for char in data] + ["0000"]
+
+
+@Instruction.create(instructions)
+# precompute instructs the assembler to compile the instruction at tokenization.
+# used for instructions that return multiple generated instructions (prevents
+# having to load and call the compiler for used instructions at compile time)
+# Use the root '~insert:' to insert the new instructions to the current root.
+@Instruction.precompute
+class __halt:
+    @staticmethod
+    def compile(_root, *args):
+        return f"""
+~insert:
+    jump -HALT {_root}.HALT
+"""
 
 
 if __name__ == "__main__":

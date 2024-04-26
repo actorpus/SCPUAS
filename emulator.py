@@ -22,41 +22,56 @@ import numpy as np
 import socket
 import threading
 import time
+import pygame
+import traceback
 
 
-class CPU:
+class CPU(threading.Thread):
     class memwrap:
-        def __init__(self):
+        def __init__(self, root):
             self.__memory = np.zeros(4096, dtype=np.uint16)
             self.mem_change_hook = None
+            self.__root = root
 
         def __getitem__(self, key):
+            if key == 0xffe:
+                print(f"Attempted to read from 0xffe, enabling debug mode")
+                self.__root.debug = True
+
             return self.__memory[key]
 
         def __setitem__(self, key, value):
+            if key == 0xffe:
+                print(f"Attempted to write to 0xffe, enabling debug mode")
+                self.__root.debug = True
+
             if self.mem_change_hook:
                 self.mem_change_hook(key, value)
 
             self.__memory[key] = value
 
-
     def __init__(self):
-        self._memory = self.memwrap()
-        self.__registers = np.zeros(16, dtype=np.uint16)
+        super().__init__()
+
+        self._memory = self.memwrap(self)
+        self.__registers = np.zeros(4, dtype=np.uint16)
         self.__stack = np.zeros(4, dtype=np.uint16)
         self.__stack_pointer = 0
         self.__pc = 0
         self.__ir = 0
-        self.__flag_carry = False
+
+        self.__flags_zero = False
+        self.__flags_carry = False
+        self.__flags_overflow = False
+        self.__flags_positive = False
+        self.__flags_negative = False
 
         self._current_instruction_rel_func = None
         self._running_at = "~ KHz"
 
         self.enabled = False
         self.running = True
-
-    def _wipe_flags(self):
-        self.__flag_carry = False
+        self.debug = False
 
     def load_memory(self, at, memory):
         for i, c in enumerate(memory):
@@ -78,27 +93,46 @@ class CPU:
         dest = ir11 << 1 | ir10
         value = ir07ir04 << 4 | ir03ir00
 
-        self._wipe_flags()
-        self.__flag_carry = self.__registers[dest] + value > 0xFFFF
+        self.__flags_carry = self.__registers[dest] + value > 0xFFFF
 
-        self.__registers[dest] += value
+        v = self.__registers[dest] + value
+
+        self.__flags_zero = v == 0
+        self.__flags_overflow = v > 0xFFFF
+        self.__flags_negative = v & 0x8000
+        self.__flags_positive = not self.__flags_negative
+
+        self.__registers[dest] = v
 
     def _SUB(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
         value = ir07ir04 << 4 | ir03ir00
 
-        self._wipe_flags()
-        self.__flag_carry = self.__registers[dest] < value
+        self.__flags_carry = self.__registers[dest] < value
 
-        self.__registers[dest] -= value
+        v = self.__registers[dest] - value
+
+        self.__flags_zero = v == 0
+        self.__flags_overflow = v > 0xFFFF
+        self.__flags_negative = v & 0x8000
+        self.__flags_positive = not self.__flags_negative
+
+        self.__registers[dest] = v
 
     def _AND(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
         value = ir07ir04 << 4 | ir03ir00
 
-        self._wipe_flags()
+        self.__flags_carry = False
 
-        self.__registers[dest] &= value
+        v = self.__registers[dest] & value
+
+        self.__flags_zero = v == 0
+        self.__flags_overflow = False
+        self.__flags_negative = v & 0x8000
+        self.__flags_positive = not self.__flags_negative
+
+        self.__registers[dest] = v
 
     def _LOAD(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
@@ -111,9 +145,6 @@ class CPU:
                 ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
-        # if value == 0xfff:
-        #     print(f"Attempted to write to 0xfff, {self.__registers[0]}")
-
         self._memory[value] = self.__registers[0]
 
     def _ADDM(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
@@ -123,10 +154,16 @@ class CPU:
 
         value = self._memory[value]
 
-        self._wipe_flags()
-        self.__flag_carry = self.__registers[0] + value > 0xFFFF
+        self.__flags_carry = self.__registers[0] + value > 0xFFFF
 
-        self.__registers[0] += value
+        v = self.__registers[0] + value
+
+        self.__flags_zero = v == 0
+        self.__flags_overflow = v > 0xFFFF
+        self.__flags_negative = v & 0x8000
+        self.__flags_positive = not self.__flags_negative
+
+        self.__registers[0] = v
 
     def _SUBM(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
@@ -135,10 +172,16 @@ class CPU:
 
         value = self._memory[value]
 
-        self._wipe_flags()
-        self.__flag_carry = self.__registers[0] < value
+        self.__flags_carry = self.__registers[0] < value
 
-        self.__registers[0] -= value
+        v = self.__registers[0] - value
+
+        self.__flags_zero = v == 0
+        self.__flags_overflow = v > 0xFFFF
+        self.__flags_negative = v & 0x8000
+        self.__flags_positive = not self.__flags_negative
+
+        self.__registers[0] = v
 
     def _JUMPU(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
@@ -152,7 +195,7 @@ class CPU:
                 ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
-        if self.__registers[0] == 0:
+        if self.__flags_zero:
             self.__pc = value
 
     def _JUMPNZ(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
@@ -160,7 +203,7 @@ class CPU:
                 ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
-        if self.__registers[0] != 0:
+        if not self.__flags_zero:
             self.__pc = value
 
     def _JUMPC(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
@@ -168,7 +211,7 @@ class CPU:
                 ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
-        if self.__flag_carry:
+        if self.__flags_carry:
             self.__pc = value
 
     def _CALL(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
@@ -192,17 +235,74 @@ class CPU:
         src = ir09 << 1 | ir08
 
         self.__registers[dest] = self.__registers[src]
+
     def _LOADR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
         src = ir09 << 1 | ir08
 
         self.__registers[dest] = self._memory[self.__registers[src]]
 
-    # def _STORER(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
-    # def _ROL(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
-    # def _ROR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
-    # def _ADDR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
-    # def _SUBR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
+    def _STORER(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
+        src = ir11 << 1 | ir10
+        dest = ir09 << 1 | ir08
+
+        self._memory[self.__registers[dest]] = self.__registers[src]
+
+    def _ROL(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
+        dest = ir11 << 1 | ir10
+        src = ir09 << 1 | ir08
+
+        self.__flags_overflow = self.__registers[dest] & 0x8000
+
+        self.__registers[dest] = (self.__registers[dest] << 1) | (self.__registers[src] >> 15)
+
+        self.__flags_zero = self.__registers[dest] == 0
+        self.__flags_carry = False
+        self.__flags_negative = self.__registers[dest] & 0x8000
+        self.__flags_positive = not self.__flags_negative
+
+    def _ROR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
+        dest = ir11 << 1 | ir10
+        src = ir09 << 1 | ir08
+
+        self.__flags_overflow = self.__registers[dest] & 0x0001
+
+        self.__registers[dest] = (self.__registers[dest] >> 1) | (self.__registers[src] << 15)
+
+        self.__flags_zero = self.__registers[dest] == 0
+        self.__flags_carry = False
+        self.__flags_negative = self.__registers[dest] & 0x8000
+        self.__flags_positive = not self.__flags_negative
+
+    def _ADDR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
+        dest = ir11 << 1 | ir10
+        src = ir09 << 1 | ir08
+
+        self.__flags_carry = self.__registers[dest] + self.__registers[src] > 0xFFFF
+
+        v = int(self.__registers[dest]) + int(self.__registers[src])
+
+        self.__flags_zero = v == 0
+        self.__flags_overflow = v > 0xFFFF
+        self.__flags_negative = v & 0x8000
+        self.__flags_positive = not self.__flags_negative
+
+        self.__registers[dest] = v & 0xFFFF
+    def _SUBR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
+        dest = ir11 << 1 | ir10
+        src = ir09 << 1 | ir08
+
+        self.__flags_carry = self.__registers[dest] < self.__registers[src]
+
+        v = int(self.__registers[dest]) - int(self.__registers[src])
+
+        self.__flags_zero = v == 0
+        self.__flags_overflow = v > 0xFFFF
+        self.__flags_negative = v & 0x8000
+        self.__flags_positive = not self.__flags_negative
+
+        self.__registers[dest] = v & 0xFFFF
+
     # def _ANDR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
     # def _ORR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
     # def _XORR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00): ...
@@ -217,11 +317,11 @@ class CPU:
                 0b0000: self._RET,
                 0b0001: self._MOVER,
                 0b0010: self._LOADR,
-                # 0b0011: self._STORER,
-                # 0b0100: self._ROL,
-                # 0b0101: self._ROR,
-                # 0b0110: self._ADDR,
-                # 0b0111: self._SUBR,
+                0b0011: self._STORER,
+                0b0100: self._ROL,
+                0b0101: self._ROR,
+                0b0110: self._ADDR,
+                0b0111: self._SUBR,
                 # 0b1000: self._ANDR,
                 # 0b1001: self._ORR,
                 # 0b1010: self._XORR,
@@ -253,14 +353,17 @@ class CPU:
     def _fetch(self):
         self.__ir = self._get_mem(self.__pc)
         self.__pc += 1
-        # print(f"Fetched: {self.__ir} at {self.__pc - 1}")
+
+        if self.debug:
+            print(f"Fetched: {self.__ir} at {self.__pc - 1}")
 
     def _decode(self):
         self._current_instruction_rel_func = self._decode_instruction_rel_func(
             self.__ir
         )
 
-        # print(f"Decoded: {self._current_instruction_rel_func.__name__}")
+        if self.debug:
+            print(f"Decoded: {self._current_instruction_rel_func.__name__}")
 
     def _execute(self):
         ir11 = (self.__ir >> 11) & 1
@@ -272,9 +375,13 @@ class CPU:
 
         self._current_instruction_rel_func(ir11, ir10, ir09, ir08, ir07ir04, ir03ir00)
 
-        # print(f"Executed: {self._current_instruction_rel_func.__name__}")
+        if self.debug:
+            print(f"Executed: {self._current_instruction_rel_func.__name__}")
 
     def run(self):
+        self._run()
+
+    def _run(self):
         i, t = 0, time.time()
 
         while self.running:
@@ -287,6 +394,20 @@ class CPU:
             self._decode()
             self._execute()
 
+            if self.debug:
+                print(f"Registers: {self.__registers}")
+                print(f"Stack: {self.__stack}")
+                print(f"Stack Pointer: {self.__stack_pointer}")
+                print(f"PC: {self.__pc}")
+                print(f"IR: {self.__ir}")
+                print(f"Carry: {self.__flags_carry}")
+                print(f"Zero: {self.__flags_zero}")
+                print(f"Overflow: {self.__flags_overflow}")
+                print(f"Negative: {self.__flags_negative}")
+                print(f"Positive: {self.__flags_positive}")
+                print()
+                time.sleep(1)
+
             i += 1
             if i == 100000:
                 c = time.time()
@@ -294,6 +415,60 @@ class CPU:
                 s = r / 100000
                 self._running_at = f"{1 / s / 1000:.2f} kHz"
                 i, t = 0, c
+
+
+class PygameScreen:
+    def __init__(self, cpu_ref: CPU):
+        pygame.font.init()
+
+        self._display = pygame.display.set_mode((800, 600))
+        self._clock = pygame.time.Clock()
+        self._running = True
+
+        self._font = pygame.font.Font(None, 24)
+
+        self._cpu = cpu_ref
+        self._watching = []
+
+    def watch(self, address, size: tuple[int, int]):
+        self._watching.append((address, size))
+        print(f"[PS] Watching {size[0]}x{size[1]} image at {address}")
+
+    def unwatch(self, address):
+        self._watching = [w for w in self._watching if w[0] != address]
+        print(f"[PS] Stopped watching image at {address}")
+
+    def load_image(self, address, size: tuple[int, int], fsize: tuple[int, int]) -> pygame.surface:
+        surf = pygame.Surface(size)
+
+        for y in range(size[1]):
+            for x in range(size[0]):
+                value = self._cpu._memory[address + y * size[0] + x]
+                r = (value >> 11) << 3
+                g = ((value >> 5) & 0x3F) << 2
+                b = (value & 0x1F) << 3
+
+                surf.set_at((x, y), (r, g, b))
+
+        surf = pygame.transform.scale(surf, fsize)
+
+        return surf
+
+    def run(self):
+        while self._running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self._running = False
+
+            self._display.fill((0, 0, 0))
+
+            for i, (address, size) in enumerate(self._watching):
+                self._display.blit(self.load_image(address, size, (128, 128)), (i * 128, 0))
+                self._display.blit(self._font.render(f" 0x{address:03x}", True, (255, 255, 255)), (i * 128, 128))
+
+            pygame.display.flip()
+            self._clock.tick(30)
+
 
 class RemoteControl(threading.Thread):
     class _NonBlocked(threading.Thread):
@@ -327,15 +502,23 @@ class RemoteControl(threading.Thread):
                     print(f"[RC.NB] Connection closed")
                     self._rc._cpu.enabled = False
                     self._rc._cpu.running = False
+                    self._rc._screen._running = False
+                    break
+                except ConnectionResetError:
+                    print(f"[RC.NB] Connection closed")
+                    self._rc._cpu.enabled = False
+                    self._rc._cpu.running = False
+                    self._rc._screen._running = False
                     break
 
                 time.sleep(0.1)
 
-    def __init__(self, cpu_ref: CPU):
+    def __init__(self, cpu_ref: CPU, screen_ref: PygameScreen):
         super().__init__()
 
         self._screen_size = (80, 24)
         self._cpu: CPU = cpu_ref
+        self._screen: PygameScreen = screen_ref
         self._stop_blocking = True
 
         self._server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -356,7 +539,7 @@ class RemoteControl(threading.Thread):
 
     def render(self):
         # Clear screen, reset cursor, reset colors, underline
-        out = '\033[2J\033[H\033[0m\033[4m Remote Control \033[0m' + ' ' * (self._screen_size[0] - 16 - 4) + 'I001\r\n'
+        out = '\033[2J\033[H\033[0m\033[4m Remote Control \033[0m' + ' ' * (self._screen_size[0] - 16 - 4) + 'I003\r\n'
 
         lines = self._lines[-(self._screen_size[1] - 3):]
 
@@ -373,6 +556,18 @@ class RemoteControl(threading.Thread):
         out += f'\033[{self._screen_size[1]};{len(self._cur_command) + 2}f'
 
         return out.encode('utf-8')
+
+    def run_command_ext(self, command):
+        try:
+            self._cur_command = command
+            self._lines.append(f"\033[34mCommand\033[0m {self._cur_command}")
+            print(f"[RC] Running external command: {self._cur_command}")
+            self.handle_command()
+        except Exception as e:
+            print(f"[RC] Exception while executing command: {e}")
+            traceback.print_exc()
+
+            self._lines.append(f"\033[31mError\033[0m {e}")
 
     def handle_command(self):
         if self._cur_command == '!exit':
@@ -403,6 +598,77 @@ class RemoteControl(threading.Thread):
         if self._cur_command == 'stop':
             self._cpu.enabled = False
             self._lines.append("CPU stopped")
+            self._last_command = self._cur_command
+            self._cur_command = ''
+            return
+
+        if self._cur_command.startswith("loadimg"):
+            img_path, address = self._cur_command[7:].strip().split(" ")
+            address = eval(address)
+            print(f"[RC] Loading image {img_path} at {address}")
+
+            with open(img_path, "r") as f:
+                code = f.read()
+
+            type_id, size, *code = [*[_.split(" ") for _ in code.strip().split("\n") if not _.startswith("#")]]
+            # also not an error ignore ide
+            type_id = type_id[0]
+            size = size[:2]
+
+            if type_id != "P3":
+                self._lines.append(f"Invalid image type: {type_id}")
+                return
+
+            og_size = size
+            size = int(size[0]) * int(size[1])
+
+            for _ in range(size):
+                b = int(code.pop(0)[0])
+                r = int(code.pop(0)[0])
+                g = int(code.pop(0)[0])
+
+                value = (r >> 3) << 11 | (g >> 2) << 5 | (b >> 3)
+
+                self._cpu._set_mem(address + _, value)
+
+            self._lines.append(f"Loaded image at {address}, ({og_size[0]}x{og_size[1]})")
+            self._last_command = self._cur_command
+            self._cur_command = ''
+            return
+
+        if self._cur_command.startswith("watchimg"):
+            address, x, y = self._cur_command[8:].strip().split(" ")
+
+            self._screen.watch(eval(address), (eval(x), eval(y)))
+            self._lines.append(f"Watching image at {address} {x}x{y}")
+            self._last_command = self._cur_command
+            self._cur_command = ''
+            return
+
+        if self._cur_command.startswith("unwatchimg"):
+            address, x, y = self._cur_command[8:].strip().split(" ")
+
+            self._screen.unwatch(eval(address))
+            self._lines.append(f"Watching image at {address} {x}x{y}")
+            self._last_command = self._cur_command
+            self._cur_command = ''
+            return
+
+        if self._cur_command.startswith("loadscp"):
+            scp_path = self._cur_command[7:].strip()
+
+            os.system(rf".\.venv\Scripts\python.exe .\assembler.py -i {scp_path} -P .\debug -a .\tmp -V")
+            os.remove(r".\tmp_high_byte.asc")
+            os.remove(r".\tmp_low_byte.asc")
+
+            with open(r".\tmp.asc", "r") as f:
+                code = f.read().strip().split(" ")
+
+            memory_start, *code = code
+            memory_start = int(memory_start, 16)
+            cpu.load_memory(memory_start, code)
+
+            self._lines.append(f"Loaded SCP at {memory_start:03x}")
             self._last_command = self._cur_command
             self._cur_command = ''
             return
@@ -444,7 +710,6 @@ class RemoteControl(threading.Thread):
         self._last_command = self._cur_command
         self._cur_command = ''
 
-
     def handle_x1b(self, data):
         if data == b'[A':
             self._cur_command, self._last_command = self._last_command, self._cur_command
@@ -467,6 +732,10 @@ class RemoteControl(threading.Thread):
             b'stop - Stop the CPU\r\n'
             b'getmem {X} - Get the value at memory address X\r\n'
             b'setmem {X} {Y} - Set the value at memory address X to Y\r\n'
+            b'loadscp {X} - Load the SCP file at X\r\n'
+            b'loadimg {X} {Y} - Load the image at X into memory at Y\r\n'
+            b'watchimg {X} {Y} {Z} - Watch the image at X of size YxZ\r\n'
+            b'unwatchimg {X} - Stop watching the image at X\r\n'
             b'\r\n'
             b'Press any key to continue\r\n'
         )
@@ -480,6 +749,9 @@ class RemoteControl(threading.Thread):
             try:
                 data = client.recv(1)
             except ConnectionAbortedError:
+                print(f"[RC] Connection closed")
+                break
+            except ConnectionResetError:
                 print(f"[RC] Connection closed")
                 break
 
@@ -497,23 +769,34 @@ class RemoteControl(threading.Thread):
                 self._cur_command = self._cur_command[:-1]
 
             if data == b'\r':
-                self.handle_command()
+                self._lines.append(f"\033[32mCommand\033[0m {self._cur_command}")
+
+                try:
+                    self.handle_command()
+                except Exception as e:
+                    print(f"[RC] Exception while executing command: {e}")
+                    traceback.print_exc()
+
+                    self._lines.append(f"\033[31mError\033[0m {e}")
 
 
 if __name__ == "__main__":
-    os.system(r".\..\.venv\Scripts\python.exe .\..\assembler.py -i .\emulator_test.scp -a .\tmp -V")
-    os.remove(r".\tmp_high_byte.asc")
-    os.remove(r".\tmp_low_byte.asc")
-
-    with open(r"tmp.asc", "r") as f:
-        code = f.read().strip().split(" ")
-
-    memory_start, *code = code
-    memory_start = int(memory_start, 16)
-
     cpu = CPU()
-    cpu.load_memory(memory_start, code)
+    screen = PygameScreen(cpu)
 
-    RemoteControl(cpu)
+    os.system(r"start putty -load rawtoscpu")
+    rc = RemoteControl(cpu, screen)
+    # starts itself
 
-    cpu.run()
+    for _ in [
+        r"ss 80 50",  # can be changed in putty settings
+        r"loadscp .\examples\emulator_test.scp",
+        r"watch 0xFFF",
+        r"loadimg .\image.ppm 1024",
+        r"watchimg 1024 24 24",
+        r"watchimg 2048 24 24",
+    ]:
+        rc.run_command_ext(_)
+
+    cpu.start()
+    screen.run()

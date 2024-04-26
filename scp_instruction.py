@@ -22,6 +22,11 @@ VALUE = 8
 UNCHECKED = 16
 
 
+class _PreComputeFlag():
+    def __init__(self, _class):
+        self.origin = _class
+
+
 class Instruction(type):
     __rep__: Callable
     arguments: OrderedDict
@@ -37,6 +42,15 @@ class Instruction(type):
         raise NotImplementedError
 
     @staticmethod
+    def precompute_compile(*args, _root) -> str:
+        raise NotImplementedError
+
+    @staticmethod
+    def precompute(_class):
+        _log.debug(f"PreCompute: Wrapping class '{_class.__name__}'")
+        return _PreComputeFlag(_class)
+
+    @staticmethod
     def create(insts_ref: dict[str,]):
         if type(insts_ref) != dict:
             _log.critical(f"Error parsing instructions reference, expected dict, got '{type(insts_ref)}'")
@@ -44,7 +58,15 @@ class Instruction(type):
         _log.debug(f"Creating new instruction wrapper")
 
         def class_wrapper(_class):
-            _log.debug(f"Wrapping class '{_class.__name__}'")
+            pc = False
+
+            if type(_class) == _PreComputeFlag:
+                _log.debug(f"Wrapping PreCompute Class '{_class.origin.__name__}'")
+                _class = _class.origin
+                pc = True
+
+            else:
+                _log.debug(f"Wrapping class '{_class.__name__}'")
 
             args = set(_class.__dict__.keys())
             args = args - {
@@ -54,7 +76,14 @@ class Instruction(type):
                 "__weakref__",
                 "__dict__",
             }
+
             args_by_func = inspect.getfullargspec(_class.compile).args
+
+
+            if pc:
+                args_by_func = [arg for arg in args_by_func if arg not in [
+                    "_root",
+                ]]
 
             if set(args) != set(args_by_func):
                 _log.critical(
@@ -105,6 +134,9 @@ class Instruction(type):
             def ref(cls):
                 return f"<Instruction '{cls.instruction}' wrapping '{cls.__orig_class__.__name__}'>"
 
+            def ref_pc(cls):
+                return f"<PreComputedInstruction '{cls.instruction}' wrapping '{cls.__orig_class__.__name__}'>"
+
             if name.startswith("_"):
                 name = '.' + name[1:]
 
@@ -113,16 +145,42 @@ class Instruction(type):
             for instruction in args:
                 arguments[instruction] = _class.__dict__[instruction]
 
+            if not pc:
+                n_args = {
+                    'instruction': name,
+                    'compile': compile_wrapper,
+                    'arguments': arguments,
+                    'total_arguments': len(arguments),
+                    'required_arguments': len(
+                        [arg for arg in arguments if arguments[arg] & REQUIRED]
+                    ),
+                    '__doc__': _class.__doc__,
+                    '__rep__': ref,
+                    '__orig_class__': _class,
+                }
+
+                new_class = Instruction(
+                    "GeneratedInstruction",
+                    (Instruction, object),
+                    n_args
+                )
+
+                _log.debug(f"Instruction '{name}' wrapped to '{new_class.__name__}', adding to reference")
+
+                insts_ref[name] = new_class
+
+                return new_class
+
             n_args = {
                 'instruction': name,
-                'compile': compile_wrapper,
+                'precompute_compile': _class.compile,
                 'arguments': arguments,
                 'total_arguments': len(arguments),
                 'required_arguments': len(
                     [arg for arg in arguments if arguments[arg] & REQUIRED]
                 ),
                 '__doc__': _class.__doc__,
-                '__rep__': ref,
+                '__rep__': ref_pc,
                 '__orig_class__': _class,
             }
 
@@ -131,7 +189,6 @@ class Instruction(type):
                 (Instruction, object),
                 n_args
             )
-
 
             _log.debug(f"Instruction '{name}' wrapped to '{new_class.__name__}', adding to reference")
 
@@ -147,6 +204,7 @@ if __name__ == '__main__':
 
     i = {}
     print("TESTING")
+
 
     @Instruction.create(i)
     class __str:
@@ -167,6 +225,7 @@ if __name__ == '__main__':
             reg = rd << 2
 
             return f"1{reg:1x}{kk:02x}"
+
 
     for inst in i:
         print(inst, i[inst])

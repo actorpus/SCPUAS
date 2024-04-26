@@ -1,0 +1,100 @@
+-language standard
+
+-alias portA 0xFFF
+
+#/
+Fibonacci series generator
+
+watch 0xFFF for the output
+/#
+
+
+start:
+    load var.a
+    store $portA$
+    addm var.b
+    store var.temp
+    load var.a
+    store var.b
+    load var.temp
+    store var.a
+
+    # only 10 iterations
+    load var.count
+    sub RA 1
+    store var.count
+    jumpnz start
+    jump word
+
+.var:
+    .data -a 1
+    .data -b 1
+    .data -temp 0
+    .data -count 10
+    .strn -word "Hello World!"
+    .data -image1 1024
+    .data -image2 2048
+    .data -loop 576
+
+
+.word:
+    move RB var.word
+    loadr -loop RA RB
+    add RA 0  # sets the zero flag if zero
+    jumpz copyimg
+    add RB 1
+    store $portA$
+    jump word.loop
+
+
+.copyimg:
+    load var.image1
+    # store 0xffe # enable emulator debug mode
+
+    load var.image1
+    mover RB RA
+    load var.image2
+    mover RD RA
+
+    # for RA, RB in enumerate(image1):
+    # if (RB - image1 - loop == 0): exit()
+    mover -loop RC RB
+    load var.image1
+    subr RC RA
+    load var.loop
+    subr RC RA
+    jumpz exit
+
+        loadr RA RB
+        mover RC RA
+        add RB 1
+
+        # g - (r + b)
+
+        # and RA 0b0000011111100000
+        ror RA
+        ror RA
+        ror RA
+        ror RA
+        ror RA
+        and RA 0b00000111111
+        rol RA
+        rol RA
+        rol RA
+        rol RA
+        rol RA
+
+
+        # store to new image
+        storer RA RD
+        add RD 1
+
+
+        jump copyimg.loop
+
+
+exit:
+    move RA 0xff
+    store $portA$
+    .halt
+    move RA 0xff

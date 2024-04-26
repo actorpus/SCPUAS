@@ -5,6 +5,7 @@
 # http://simplecpudesign.com/
 import logging
 import pathlib
+import pprint
 import random
 import time
 from collections import OrderedDict
@@ -699,6 +700,7 @@ def token_stream_instruction_press(
                 imported=imported,
                 _log_name=f"{temp_rel_name}.InstructionPress"
             )
+            temp_roots, temp_imported = rooted_instructions_pre_computer(temp_roots, temp_imported, project_path, path)
             _log.debug(f"Returned from {path}")
 
             _log.debug(f"Imported root[s] {', '.join(list(temp_roots.keys()))} from {path}")
@@ -838,6 +840,72 @@ def token_stream_instruction_press(
     return roots, imported
 
 
+def rooted_instructions_pre_computer(roots: RootedInstructionsStruct, imported, project_path, path) -> tuple[RootedInstructionsStruct, set[pathlib.Path]]:
+    _log = logging.getLogger("PreComputer")
+    _log.debug("Starting precomputer")
+
+    new_roots = OrderedDict()
+
+    for root in roots:
+        new_roots[root] = []
+
+        for i, instruction in enumerate(roots[root]):
+            if 'precompute_compile' in Instructions[instruction['name']].__dict__:
+                _log.debug(f"Found precompute for instruction '{instruction}'")
+
+                temp_rel_name = f"PC|{root}[{instruction['line']}]{instruction['name']}"
+                indentation = len(max([_ for _ in roots if _.startswith(root)], key=lambda x: x.count("~")))
+                new_root_name = f"{root}{'~' * indentation}"
+
+                temp_precomputed: str = Instructions[instruction['name']].precompute_compile(
+                    *instruction['arguments'],
+                    _root = new_root_name.replace("~", "")
+                )
+
+                temp_precomputed = temp_precomputed.replace("~insert", new_root_name)
+
+                _log.debug(temp_precomputed)
+
+                temp_char_stream = create_char_stream(temp_precomputed)
+                temp_char_stream = char_stream_ascii_only(temp_char_stream, _log_name=f"{temp_rel_name}.AsciiOnly")
+                temp_token_stream = char_stream_tokenize(temp_char_stream, _log_name=f"{temp_rel_name}.Tokenizer")
+                temp_token_stream = token_stream_alias_replacer(temp_token_stream, _log_name=f"{temp_rel_name}.AliasReplace")
+                temp_token_stream = token_stream_cic_executor(temp_token_stream, project_path, path, _log_name=f"{temp_rel_name}.CICExecutor")
+
+                _log.debug(f"Executing from {path}.{temp_rel_name}")
+                temp_roots, temp_imported = token_stream_instruction_press(
+                    temp_token_stream,
+                    project_path,
+                    code_location=path,
+                    enforce_start=False,
+                    imported=imported,
+                    _log_name=f"{temp_rel_name}.InstructionPress"
+                )
+                temp_roots, temp_imported = rooted_instructions_pre_computer(temp_roots, temp_imported, project_path, path)
+                _log.debug(f"Returned from {path}.{temp_rel_name}")
+
+                imported.update(temp_imported)
+
+                for temp_root in temp_roots:
+                    if temp_root in roots:
+                        _log.critical(f"Found precomputed root '{temp_root}' that already exists. Exiting.")
+                        raise SystemExit
+
+                    if temp_root.split('.')[0] == '~insert':
+                        _log.debug(f"Inserting precomputed instructions into root '{root}'")
+                        new_roots[root].extend(temp_roots[temp_root])
+
+                        continue
+
+                    _log.debug(f"Adding precomputed instructions as root '{temp_root}'")
+                    new_roots[temp_root] = temp_roots[temp_root]
+
+            else:
+                new_roots[root].append(instruction)
+
+    return new_roots, imported
+
+
 def rooted_instructions_rearranger(roots: RootedInstructionsStruct) -> RootedInstructionsStruct:
     _log = logging.getLogger("Rearranger")
 
@@ -942,7 +1010,7 @@ def rooted_instructions_argument_parser(roots: RootedInstructionsStruct) -> Root
                             and isinstance(arguments[i], str)
                             and arguments[i] not in [_.replace("~", "") for _ in roots]
                     ):
-                        _log.critical(f"Argument {i} ({arguments[i]}) of instruction '{name}' must be a valid token. Exiting.")
+                        _log.critical(f"Argument {i} ({arguments[i]}) of instruction '{name}' must be a valid token. Exiting. {[_.replace("~", "") for _ in roots]}")
 
                         print_debug(org)
 
@@ -954,8 +1022,11 @@ def rooted_instructions_argument_parser(roots: RootedInstructionsStruct) -> Root
 def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> tuple[list[str], RootedInstructionsStruct]:
     _log = logging.getLogger("Compiler")
 
+    _log.debug(f"Compiling instructions, {pprint.pformat(roots)}")
+
     # 0. Press ~ out of roots
-    pressed_roots = [_.replace('~', '') for _ in roots]
+    pressed_roots = {_.replace('~', '') for _ in roots}
+    _log.debug(f"Pressed roots: {pressed_roots}")
 
     # 1. compile all instructions with dummy references
     for root in roots:
@@ -989,6 +1060,8 @@ def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> tuple[list[
 
             instruction['length'] = len(Inst.compile(*dummy_args))
 
+    _log.debug(f"Roots after dummy compile: {pprint.pformat(roots)}")
+
     # 2. Figure out final location of all roots
     indexed_roots = {}
     pointer = 0
@@ -996,10 +1069,12 @@ def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> tuple[list[
     for root in roots:
         if root.replace("~", "") in indexed_roots:
             _log.debug(f"Skipping root {root} as it is already indexed under {root.replace('~', '')}.")
-            continue
+        else:
+            indexed_roots[root.replace("~", "")] = pointer
 
-        indexed_roots[root.replace("~", "")] = pointer
         pointer += sum(instruction['length'] for instruction in roots[root])
+
+    _log.debug(f"Indexed roots: {pprint.pformat(indexed_roots)}")
 
     # 3. Compile all instructions with final references
     output = []
@@ -1015,6 +1090,7 @@ def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> tuple[list[
                     continue
 
                 if args[i] in pressed_roots:
+                    _log.debug(f"Replacing {args[i]} with {indexed_roots[args[i]]}")
                     args[i] = indexed_roots[args[i]]
                     continue
 
@@ -1026,6 +1102,8 @@ def rooted_instructions_compiler(roots: RootedInstructionsStruct) -> tuple[list[
 
                 _log.critical(f"Unknown argument type '{args[i]}', Something is very wrong... Exiting.")
                 raise SystemExit
+
+            _log.debug(f"Compiling {root}: {instruction['name']} with arguments {args}.")
 
             output += Inst.compile(*args)
             instruction['compiled'] = output[-instruction['length']:]
@@ -1048,6 +1126,8 @@ def full_stack_load_compile(
     token_stream = token_stream_cic_executor(token_stream, project_root, code_location)
 
     rooted_instructions, imports = token_stream_instruction_press(token_stream, project_root, code_location)
+    rooted_instructions, imports = rooted_instructions_pre_computer(rooted_instructions, imports, project_root, code_location)
+
     rooted_instructions = rooted_instructions_rearranger(rooted_instructions)
     rooted_instructions = rooted_instructions_argument_parser(rooted_instructions)
 
@@ -1279,6 +1359,39 @@ def generate_dec(roots: RootedInstructionsStruct, imports: set[pathlib.Path], pr
     return final.strip()
 
 
+def genderate_debug(roots: RootedInstructionsStruct, imports: set[pathlib.Path], project_root: pathlib.Path, project_path: pathlib.Path) -> str:
+    """
+    Will output similar to the dec but with Line numbers and compiled version
+    """
+
+    def int_hex(i: any) -> str:
+        if isinstance(i, int):
+            return f"{i:04x}"
+        if i.isdigit():
+            return f"{int(i):04x}"
+        return str(i)
+
+    time.sleep(0.3)
+
+    output = ""
+    pointer = 0
+
+    for root in roots:
+        inst = f"{root.replace('~', '')}:"
+        output += f"     |      | {inst:29} | \n"
+
+        for instruction in roots[root]:
+            inst = f"{instruction['name']:6} {' '.join(map(int_hex, instruction['arguments']))}"
+            orig_inst = f"{instruction['name']:6} {' '.join(map(str, instruction['original']))}"
+            output += f"{pointer:04x} | {instruction['compiled'][0]} |     {orig_inst:25} | {inst}\n"
+            pointer += 1
+
+            for out in instruction['compiled'][1:]:
+                output += f"{pointer:04x} | {out} | {'':29} | \n"
+                pointer += 1
+
+    return output
+
 def generate_cli(
         file_path: pathlib.Path,
         asc: Union[None, str],
@@ -1286,6 +1399,7 @@ def generate_cli(
         mem: Union[None, str],
         mif: Union[None, str],
         dec: Union[None, str],
+        deb: Union[None, str],
         address_offset: int = 0,
         project_path: Union[None, pathlib.Path] = None
 ):
@@ -1386,6 +1500,18 @@ def generate_cli(
 
         _log.info(f"Generated .dec.asm file at {path}")
 
+    if deb is not None:
+        gen_deb = genderate_debug(roots, imports, project_path, file_path)
+        path = pathlib.Path(deb + ".debug").resolve()
+
+        try:
+            with open(path, "w") as f:
+                f.write(gen_deb)
+        except FileNotFoundError:
+            _log.critical(f"Could not write to {path}. Exiting.")
+            raise SystemExit
+
+        _log.info(f"Generated .debug file at {path}")
 
 def main():
     _log = logging.getLogger("Main")
@@ -1395,7 +1521,7 @@ def main():
 
     args = sys.argv[1:]
 
-    options = "hi:A:a:d:m:f:o:D:R:-v-V"
+    options = "hi:A:a:d:m:f:o:D:R:-v-VP:"
     long_options = [
         "help",
         "input",  # input file
@@ -1404,16 +1530,17 @@ def main():
         "dat_output",
         "mem_output",
         "mif_output",
-        "dec_output"
+        "dec_output",
+        "debug_output",
         "output",  # legacy support
-        "Root"  # project root (if you're initial file is not compiling from the project root)
+        "Root",  # project root (if you're initial file is not compiling from the project root)
         "verbose",
-        "super_verbose"
+        "super_verbose",
     ]
 
     args, _ = getopt.getopt(args, options, long_options)
 
-    asc, dat, mem, mif, dec = None, None, None, None, None
+    asc, dat, mem, mif, dec, deb = None, None, None, None, None, None
     project_path = None
     address_offset = 0
     log_level = logging.WARNING
@@ -1469,17 +1596,20 @@ def main():
         if arg in ("-V", "--super_verbose"):
             log_level = logging.DEBUG
 
+        if arg in ("-P", "--debug_output"):
+            deb = val
+
     if not file_path:
         _log.critical("No input file found. Exiting.")
         raise SystemExit
 
     logging.basicConfig(level=log_level)
 
-    if not any([asc, dat, mem, mif, dec]):
+    if not any([asc, dat, mem, mif, dec, deb]):
         _log.critical("No output files specified. Exiting.")
         raise SystemExit
 
-    return generate_cli(file_path, asc, dat, mem, mif, dec, address_offset, project_path)
+    return generate_cli(file_path, asc, dat, mem, mif, dec, deb, address_offset, project_path)
 
 
 if __name__ == "__main__":
