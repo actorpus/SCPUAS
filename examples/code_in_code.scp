@@ -5,14 +5,15 @@ start:
 
 -alias boop 0xFC
 
+# inline code (evaluated)
 {{ (tempname := $.randomname$) }}:
     jump $boop$
     .strn "{{ tempname }}"
 
+# block code (executed)
+# note: print is remapped, stdout is not.
 block:
 {!
-print(tempname)
-
 for _ in range(5):
     print(f"jump {_}")
 !}

@@ -11,7 +11,7 @@ start:
 
 {!
 
-# Indentation in prints isn't actually important
+# Indentation isn't actually important
 print("    .data", string.standard.a)
 
 !}
