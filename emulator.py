@@ -50,14 +50,17 @@ class CPU(threading.Thread):
 
             self.__memory[key] = value
 
+        def clear(self):
+            self.__memory = np.zeros(4096, dtype=np.uint16)
+
     def __init__(self):
         super().__init__()
 
         self._memory = self.memwrap(self)
-        self.__registers = np.zeros(4, dtype=np.uint16)
+        self._registers = np.zeros(4, dtype=np.uint16)
         self.__stack = np.zeros(4, dtype=np.uint16)
         self.__stack_pointer = 0
-        self.__pc = 0
+        self._pc = 0
         self.__ir = 0
 
         self.__flags_zero = False
@@ -87,37 +90,37 @@ class CPU(threading.Thread):
         dest = ir11 << 1 | ir10
         value = ir07ir04 << 4 | ir03ir00
 
-        self.__registers[dest] = value
+        self._registers[dest] = value
 
     def _ADD(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
         value = ir07ir04 << 4 | ir03ir00
 
-        self.__flags_carry = self.__registers[dest] + value > 0xFFFF
+        self.__flags_carry = self._registers[dest] + value > 0xFFFF
 
-        v = self.__registers[dest] + value
+        v = self._registers[dest] + value
 
         self.__flags_zero = v == 0
         self.__flags_overflow = v > 0xFFFF
         self.__flags_negative = v & 0x8000
         self.__flags_positive = not self.__flags_negative
 
-        self.__registers[dest] = v
+        self._registers[dest] = v
 
     def _SUB(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
         value = ir07ir04 << 4 | ir03ir00
 
-        self.__flags_carry = self.__registers[dest] < value
+        self.__flags_carry = self._registers[dest] < value
 
-        v = self.__registers[dest] - value
+        v = self._registers[dest] - value
 
         self.__flags_zero = v == 0
         self.__flags_overflow = v > 0xFFFF
         self.__flags_negative = v & 0x8000
         self.__flags_positive = not self.__flags_negative
 
-        self.__registers[dest] = v
+        self._registers[dest] = v
 
     def _AND(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
@@ -125,27 +128,27 @@ class CPU(threading.Thread):
 
         self.__flags_carry = False
 
-        v = self.__registers[dest] & value
+        v = self._registers[dest] & value
 
         self.__flags_zero = v == 0
         self.__flags_overflow = False
         self.__flags_negative = v & 0x8000
         self.__flags_positive = not self.__flags_negative
 
-        self.__registers[dest] = v
+        self._registers[dest] = v
 
     def _LOAD(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
                 ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
-        self.__registers[0] = self._memory[value]
+        self._registers[0] = self._memory[value]
 
     def _STORE(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
                 ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
-        self._memory[value] = self.__registers[0]
+        self._memory[value] = self._registers[0]
 
     def _ADDM(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
@@ -154,16 +157,16 @@ class CPU(threading.Thread):
 
         value = self._memory[value]
 
-        self.__flags_carry = self.__registers[0] + value > 0xFFFF
+        self.__flags_carry = self._registers[0] + value > 0xFFFF
 
-        v = self.__registers[0] + value
+        v = self._registers[0] + value
 
         self.__flags_zero = v == 0
         self.__flags_overflow = v > 0xFFFF
         self.__flags_negative = v & 0x8000
         self.__flags_positive = not self.__flags_negative
 
-        self.__registers[0] = v
+        self._registers[0] = v
 
     def _SUBM(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
@@ -172,23 +175,23 @@ class CPU(threading.Thread):
 
         value = self._memory[value]
 
-        self.__flags_carry = self.__registers[0] < value
+        self.__flags_carry = self._registers[0] < value
 
-        v = self.__registers[0] - value
+        v = self._registers[0] - value
 
         self.__flags_zero = v == 0
         self.__flags_overflow = v > 0xFFFF
         self.__flags_negative = v & 0x8000
         self.__flags_positive = not self.__flags_negative
 
-        self.__registers[0] = v
+        self._registers[0] = v
 
     def _JUMPU(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
                 ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
-        self.__pc = value
+        self._pc = value
 
     def _JUMPZ(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
@@ -196,7 +199,7 @@ class CPU(threading.Thread):
         )
 
         if self.__flags_zero:
-            self.__pc = value
+            self._pc = value
 
     def _JUMPNZ(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
@@ -204,7 +207,7 @@ class CPU(threading.Thread):
         )
 
         if not self.__flags_zero:
-            self.__pc = value
+            self._pc = value
 
     def _JUMPC(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
@@ -212,17 +215,17 @@ class CPU(threading.Thread):
         )
 
         if self.__flags_carry:
-            self.__pc = value
+            self._pc = value
 
     def _CALL(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        self.__stack[self.__stack_pointer] = self.__pc
+        self.__stack[self.__stack_pointer] = self._pc
         self.__stack_pointer += 1
 
         value = (
                 ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
-        self.__pc = value
+        self._pc = value
 
     def _OR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         raise NotImplementedError
@@ -231,80 +234,80 @@ class CPU(threading.Thread):
         raise NotImplementedError
     def _RET(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         self.__stack_pointer -= 1
-        self.__pc = self.__stack[self.__stack_pointer]
+        self._pc = self.__stack[self.__stack_pointer]
 
     def _MOVER(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
         src = ir09 << 1 | ir08
 
-        self.__registers[dest] = self.__registers[src]
+        self._registers[dest] = self._registers[src]
 
     def _LOADR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
         src = ir09 << 1 | ir08
 
-        self.__registers[dest] = self._memory[self.__registers[src]]
+        self._registers[dest] = self._memory[self._registers[src]]
 
     def _STORER(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         src = ir11 << 1 | ir10
         dest = ir09 << 1 | ir08
 
-        self._memory[self.__registers[dest]] = self.__registers[src]
+        self._memory[self._registers[dest]] = self._registers[src]
 
     def _ROL(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
         src = ir09 << 1 | ir08
 
-        self.__flags_overflow = self.__registers[dest] & 0x8000
+        self.__flags_overflow = self._registers[dest] & 0x8000
 
-        self.__registers[dest] = (self.__registers[dest] << 1) | (self.__registers[src] >> 15)
+        self._registers[dest] = (self._registers[dest] << 1) | (self._registers[src] >> 15)
 
-        self.__flags_zero = self.__registers[dest] == 0
+        self.__flags_zero = self._registers[dest] == 0
         self.__flags_carry = False
-        self.__flags_negative = self.__registers[dest] & 0x8000
+        self.__flags_negative = self._registers[dest] & 0x8000
         self.__flags_positive = not self.__flags_negative
 
     def _ROR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
         src = ir09 << 1 | ir08
 
-        self.__flags_overflow = self.__registers[dest] & 0x0001
+        self.__flags_overflow = self._registers[dest] & 0x0001
 
-        self.__registers[dest] = (self.__registers[dest] >> 1) | (self.__registers[src] << 15)
+        self._registers[dest] = (self._registers[dest] >> 1) | (self._registers[src] << 15)
 
-        self.__flags_zero = self.__registers[dest] == 0
+        self.__flags_zero = self._registers[dest] == 0
         self.__flags_carry = False
-        self.__flags_negative = self.__registers[dest] & 0x8000
+        self.__flags_negative = self._registers[dest] & 0x8000
         self.__flags_positive = not self.__flags_negative
 
     def _ADDR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
         src = ir09 << 1 | ir08
 
-        self.__flags_carry = self.__registers[dest] + self.__registers[src] > 0xFFFF
+        self.__flags_carry = self._registers[dest] + self._registers[src] > 0xFFFF
 
-        v = int(self.__registers[dest]) + int(self.__registers[src])
+        v = int(self._registers[dest]) + int(self._registers[src])
 
         self.__flags_zero = v == 0
         self.__flags_overflow = v > 0xFFFF
         self.__flags_negative = v & 0x8000
         self.__flags_positive = not self.__flags_negative
 
-        self.__registers[dest] = v & 0xFFFF
+        self._registers[dest] = v & 0xFFFF
     def _SUBR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
         src = ir09 << 1 | ir08
 
-        self.__flags_carry = self.__registers[dest] < self.__registers[src]
+        self.__flags_carry = self._registers[dest] < self._registers[src]
 
-        v = int(self.__registers[dest]) - int(self.__registers[src])
+        v = int(self._registers[dest]) - int(self._registers[src])
 
         self.__flags_zero = v == 0
         self.__flags_overflow = v > 0xFFFF
         self.__flags_negative = v & 0x8000
         self.__flags_positive = not self.__flags_negative
 
-        self.__registers[dest] = v & 0xFFFF
+        self._registers[dest] = v & 0xFFFF
 
     def _ANDR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         raise NotImplementedError
@@ -375,11 +378,11 @@ class CPU(threading.Thread):
         }[ir15ir12]
 
     def _fetch(self):
-        self.__ir = self._get_mem(self.__pc)
-        self.__pc += 1
+        self.__ir = self._get_mem(self._pc)
+        self._pc += 1
 
         if self.debug:
-            print(f"Fetched: {self.__ir} at {self.__pc - 1}")
+            print(f"Fetched: {self.__ir} at {self._pc - 1}")
 
     def _decode(self):
         self._current_instruction_rel_func = self._decode_instruction_rel_func(
@@ -419,10 +422,10 @@ class CPU(threading.Thread):
             self._execute()
 
             if self.debug:
-                print(f"Registers: {self.__registers}")
+                print(f"Registers: {self._registers}")
                 print(f"Stack: {self.__stack}")
                 print(f"Stack Pointer: {self.__stack_pointer}")
-                print(f"PC: {self.__pc}")
+                print(f"PC: {self._pc}")
                 print(f"IR: {self.__ir}")
                 print(f"Carry: {self.__flags_carry}")
                 print(f"Zero: {self.__flags_zero}")
@@ -752,6 +755,49 @@ class RemoteControl(threading.Thread):
             self._nonblocked._running = False
             return
 
+        if self._cur_command.startswith("clearmem"):
+            self._cpu._memory.clear()
+            self._lines.append(f"Cleared memory")
+            self._last_command = self._cur_command
+            self._cur_command = ''
+            return
+
+        if self._cur_command.startswith("setreg"):
+            reg, value = self._cur_command[6:].strip().split(" ")
+            reg = eval(reg)
+            value = eval(value)
+
+            self._cpu._registers[reg] = value
+
+            self._lines.append(f"Register {reg} set to {value}")
+            self._last_command = self._cur_command
+            self._cur_command = ''
+            return
+
+        if self._cur_command.startswith("getreg"):
+            reg = eval(self._cur_command[6:])
+
+            self._lines.append(f"Register {reg}: {self._cpu._registers[reg]}")
+            self._last_command = self._cur_command
+            self._cur_command = ''
+            return
+
+        if self._cur_command.startswith("setpc"):
+            pc = eval(self._cur_command[5:])
+
+            self._cpu._pc = pc
+
+            self._lines.append(f"PC set to {pc}")
+            self._last_command = self._cur_command
+            self._cur_command = ''
+            return
+
+        if self._cur_command.startswith("getpc"):
+            self._lines.append(f"PC: {self._cpu._pc}")
+            self._last_command = self._cur_command
+            self._cur_command = ''
+            return
+
         self._lines.append(f"Unknown command: {self._cur_command}")
         self._last_command = self._cur_command
         self._cur_command = ''
@@ -782,6 +828,11 @@ class RemoteControl(threading.Thread):
             b'loadimg {X} {Y} - Load the image at X into memory at Y\r\n'
             b'watchimg {X} {Y} {Z} - Watch the image at X of size YxZ\r\n'
             b'unwatchimg {X} - Stop watching the image at X\r\n'
+            b'clearmem - Clear the memory\r\n'
+            b'setreg {X} {Y} - Set register X to Y\r\n'
+            b'getreg {X} - Get the value of register X\r\n'
+            b'setpc {X} - Set the PC to X\r\n'
+            b'getpc - Get the value of the PC\r\n'
             b'\r\n'
             b'Press any key to continue\r\n'
         )
