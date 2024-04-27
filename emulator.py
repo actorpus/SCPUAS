@@ -18,12 +18,15 @@ Local line editing: Force off
 """
 
 import os
-import numpy as np
+import pathlib
 import socket
+import sys
 import threading
 import time
-import pygame
 import traceback
+import pygame
+
+import numpy as np
 
 
 class CPU(threading.Thread):
@@ -730,14 +733,20 @@ class RemoteControl(threading.Thread):
 
         if self._cur_command.startswith("loadscp"):
             scp_path = self._cur_command[7:].strip()
+            scp_path = pathlib.Path(scp_path).resolve()
+            python_executable_path = pathlib.Path(sys.executable).resolve()
+
+            if scp_path.exists() is False:
+                self._lines.append(f"File at {scp_path} does not exist")
+                return
 
             os.system(
-                rf".\.venv\Scripts\python.exe .\assembler.py -i {scp_path} -P .\debug -a .\tmp -V"
+                rf"{python_executable_path} assembler.py -i {scp_path} -P debug -a tmp -V"
             )
-            os.remove(r".\tmp_high_byte.asc")
-            os.remove(r".\tmp_low_byte.asc")
+            os.remove(r"tmp_high_byte.asc")
+            os.remove(r"tmp_low_byte.asc")
 
-            with open(r".\tmp.asc", "r") as f:
+            with open(r"tmp.asc", "r") as f:
                 code = f.read().strip().split(" ")
 
             memory_start, *code = code

@@ -8,7 +8,6 @@ can easily create new instructions.
 """
 
 import logging
-import sys
 from typing import *
 from collections import OrderedDict
 import inspect
