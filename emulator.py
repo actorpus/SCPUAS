@@ -34,14 +34,14 @@ class CPU(threading.Thread):
             self.__root = root
 
         def __getitem__(self, key):
-            if key == 0xffe:
+            if key == 0xFFE:
                 print(f"Attempted to read from 0xffe, enabling debug mode")
                 self.__root.debug = True
 
             return self.__memory[key]
 
         def __setitem__(self, key, value):
-            if key == 0xffe:
+            if key == 0xFFE:
                 print(f"Attempted to write to 0xffe, enabling debug mode")
                 self.__root.debug = True
 
@@ -139,20 +139,20 @@ class CPU(threading.Thread):
 
     def _LOAD(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
         self._registers[0] = self._memory[value]
 
     def _STORE(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         self._memory[value] = self._registers[0]
 
     def _ADDM(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         value = self._memory[value]
@@ -170,7 +170,7 @@ class CPU(threading.Thread):
 
     def _SUBM(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         value = self._memory[value]
@@ -188,14 +188,14 @@ class CPU(threading.Thread):
 
     def _JUMPU(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         self._pc = value
 
     def _JUMPZ(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         if self.__flags_zero:
@@ -203,7 +203,7 @@ class CPU(threading.Thread):
 
     def _JUMPNZ(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         if not self.__flags_zero:
@@ -211,7 +211,7 @@ class CPU(threading.Thread):
 
     def _JUMPC(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         if self.__flags_carry:
@@ -222,7 +222,7 @@ class CPU(threading.Thread):
         self.__stack_pointer += 1
 
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         self._pc = value
@@ -232,6 +232,7 @@ class CPU(threading.Thread):
 
     def _XOP1(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         raise NotImplementedError
+
     def _RET(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         self.__stack_pointer -= 1
         self._pc = self.__stack[self.__stack_pointer]
@@ -260,7 +261,9 @@ class CPU(threading.Thread):
 
         self.__flags_overflow = self._registers[dest] & 0x8000
 
-        self._registers[dest] = (self._registers[dest] << 1) | (self._registers[src] >> 15)
+        self._registers[dest] = (self._registers[dest] << 1) | (
+            self._registers[src] >> 15
+        )
 
         self.__flags_zero = self._registers[dest] == 0
         self.__flags_carry = False
@@ -273,7 +276,9 @@ class CPU(threading.Thread):
 
         self.__flags_overflow = self._registers[dest] & 0x0001
 
-        self._registers[dest] = (self._registers[dest] >> 1) | (self._registers[src] << 15)
+        self._registers[dest] = (self._registers[dest] >> 1) | (
+            self._registers[src] << 15
+        )
 
         self.__flags_zero = self._registers[dest] == 0
         self.__flags_carry = False
@@ -294,6 +299,7 @@ class CPU(threading.Thread):
         self.__flags_positive = not self.__flags_negative
 
         self._registers[dest] = v & 0xFFFF
+
     def _SUBR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
         src = ir09 << 1 | ir08
@@ -321,7 +327,6 @@ class CPU(threading.Thread):
     def _ASLR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         raise NotImplementedError
 
-
     def _XOP2(self, ir11, ir10, ir09, ir08, ir08ir04, ir03ir00):
         raise NotImplementedError
 
@@ -333,7 +338,6 @@ class CPU(threading.Thread):
 
     def _XOP5(self, ir11, ir10, ir09, ir08, ir08ir04, ir03ir00):
         raise NotImplementedError
-
 
     def _decode_instruction_rel_func(self, ir):
         ir15ir12 = ir >> 12
@@ -467,7 +471,9 @@ class PygameScreen:
         self._watching = [w for w in self._watching if w[0] != address]
         print(f"[PS] Stopped watching image at {address}")
 
-    def load_image(self, address, size: tuple[int, int], fsize: tuple[int, int]) -> pygame.surface:
+    def load_image(
+        self, address, size: tuple[int, int], fsize: tuple[int, int]
+    ) -> pygame.surface:
         surf = pygame.Surface(size)
 
         for y in range(size[1]):
@@ -492,8 +498,13 @@ class PygameScreen:
             self._display.fill((0, 0, 0))
 
             for i, (address, size) in enumerate(self._watching):
-                self._display.blit(self.load_image(address, size, (128, 128)), (i * 128, 0))
-                self._display.blit(self._font.render(f" 0x{address:03x}", True, (255, 255, 255)), (i * 128, 128))
+                self._display.blit(
+                    self.load_image(address, size, (128, 128)), (i * 128, 0)
+                )
+                self._display.blit(
+                    self._font.render(f" 0x{address:03x}", True, (255, 255, 255)),
+                    (i * 128, 128),
+                )
 
             pygame.display.flip()
             self._clock.tick(30)
@@ -511,7 +522,9 @@ class RemoteControl(threading.Thread):
             self._running = True
 
             self._old_data = {}
-            self._rc._cpu._memory.mem_change_hook = lambda key, value: self._check_changes(key, value)
+            self._rc._cpu._memory.mem_change_hook = (
+                lambda key, value: self._check_changes(key, value)
+            )
 
         def bind(self, client):
             self._client = client
@@ -522,7 +535,9 @@ class RemoteControl(threading.Thread):
                 if value in range(32, 127):
                     w = f" '{chr(value)}'"
 
-                self._rc._lines.append(f"\033[31mMemory\033[0m {key:03x}: {self._old_data.get(key, 0):04x} -> {value:04x}{w}")
+                self._rc._lines.append(
+                    f"\033[31mMemory\033[0m {key:03x}: {self._old_data.get(key, 0):04x} -> {value:04x}{w}"
+                )
                 self._old_data[key] = value
 
         def run(self):
@@ -561,13 +576,13 @@ class RemoteControl(threading.Thread):
         self._stop_blocking = True
 
         self._server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._server.bind(('localhost', 4003))
+        self._server.bind(("localhost", 4003))
         self._server.listen(1)
 
         self._lines = []
-        self._cur_command = ''
+        self._cur_command = ""
         self._watching = []
-        self._last_command = ''
+        self._last_command = ""
 
         self._running = True
 
@@ -576,27 +591,37 @@ class RemoteControl(threading.Thread):
         self._nonblocked = self._NonBlocked(self._server, self)
 
         print(f"[RC] Waiting for connection")
-        while self._stop_blocking: time.sleep(0.1)
+        while self._stop_blocking:
+            time.sleep(0.1)
 
     def render(self):
         # Clear screen, reset cursor, reset colors, underline
-        out = '\033[2J\033[H\033[0m\033[4m Remote Control \033[0m' + ' ' * (self._screen_size[0] - 16 - 4) + 'I003\r\n'
+        out = (
+            "\033[2J\033[H\033[0m\033[4m Remote Control \033[0m"
+            + " " * (self._screen_size[0] - 16 - 4)
+            + "I003\r\n"
+        )
 
-        lines = self._lines[-(self._screen_size[1] - 3):]
+        lines = self._lines[-(self._screen_size[1] - 3) :]
 
         for line in lines:
-            out += line + '\r\n'
+            out += line + "\r\n"
 
-        out += f'\033[{self._screen_size[1] - 1};0f'
-        out += '-' * self._screen_size[0]
-        out += '\r\n:'
+        out += f"\033[{self._screen_size[1] - 1};0f"
+        out += "-" * self._screen_size[0]
+        out += "\r\n:"
         out += self._cur_command
-        out += ' ' * (self._screen_size[0] - len(self._cur_command) - len(self._cpu._running_at) - 1)
+        out += " " * (
+            self._screen_size[0]
+            - len(self._cur_command)
+            - len(self._cpu._running_at)
+            - 1
+        )
         out += self._cpu._running_at
         # move cursor back to input
-        out += f'\033[{self._screen_size[1]};{len(self._cur_command) + 2}f'
+        out += f"\033[{self._screen_size[1]};{len(self._cur_command) + 2}f"
 
-        return out.encode('utf-8')
+        return out.encode("utf-8")
 
     def run_command_ext(self, command):
         try:
@@ -611,36 +636,36 @@ class RemoteControl(threading.Thread):
             self._lines.append(f"\033[31mError\033[0m {e}")
 
     def handle_command(self):
-        if self._cur_command == '!exit':
+        if self._cur_command == "!exit":
             raise SystemExit
 
-        if self._cur_command.startswith('ss'):
+        if self._cur_command.startswith("ss"):
             if not self._cur_command[2:].strip():
                 self._lines.append("Reset screen size to 80x24")
                 self._screen_size = (80, 24)
                 self._last_command = self._cur_command
-                self._cur_command = ''
+                self._cur_command = ""
                 return
 
-            x, y = self._cur_command[2:].strip().split(' ')
+            x, y = self._cur_command[2:].strip().split(" ")
             self._lines.append(f"Screen size set to {x}x{y}")
             self._screen_size = (int(x), int(y))
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
-        if self._cur_command == 'start':
+        if self._cur_command == "start":
             self._cpu.enabled = True
             self._lines.append("CPU started")
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
-        if self._cur_command == 'stop':
+        if self._cur_command == "stop":
             self._cpu.enabled = False
             self._lines.append("CPU stopped")
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
         if self._cur_command.startswith("loadimg"):
@@ -651,7 +676,13 @@ class RemoteControl(threading.Thread):
             with open(img_path, "r") as f:
                 code = f.read()
 
-            type_id, size, *code = [*[_.split(" ") for _ in code.strip().split("\n") if not _.startswith("#")]]
+            type_id, size, *code = [
+                *[
+                    _.split(" ")
+                    for _ in code.strip().split("\n")
+                    if not _.startswith("#")
+                ]
+            ]
             # also not an error ignore ide
             type_id = type_id[0]
             size = size[:2]
@@ -672,9 +703,11 @@ class RemoteControl(threading.Thread):
 
                 self._cpu._set_mem(address + _, value)
 
-            self._lines.append(f"Loaded image at {address}, ({og_size[0]}x{og_size[1]})")
+            self._lines.append(
+                f"Loaded image at {address}, ({og_size[0]}x{og_size[1]})"
+            )
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
         if self._cur_command.startswith("watchimg"):
@@ -683,7 +716,7 @@ class RemoteControl(threading.Thread):
             self._screen.watch(eval(address), (eval(x), eval(y)))
             self._lines.append(f"Watching image at {address} {x}x{y}")
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
         if self._cur_command.startswith("unwatchimg"):
@@ -692,13 +725,15 @@ class RemoteControl(threading.Thread):
             self._screen.unwatch(eval(address))
             self._lines.append(f"Watching image at {address} {x}x{y}")
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
         if self._cur_command.startswith("loadscp"):
             scp_path = self._cur_command[7:].strip()
 
-            os.system(rf".\.venv\Scripts\python.exe .\assembler.py -i {scp_path} -P .\debug -a .\tmp -V")
+            os.system(
+                rf".\.venv\Scripts\python.exe .\assembler.py -i {scp_path} -P .\debug -a .\tmp -V"
+            )
             os.remove(r".\tmp_high_byte.asc")
             os.remove(r".\tmp_low_byte.asc")
 
@@ -711,7 +746,7 @@ class RemoteControl(threading.Thread):
 
             self._lines.append(f"Loaded SCP at {memory_start:03x}")
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
         if self._cur_command.startswith("watch"):
@@ -719,7 +754,7 @@ class RemoteControl(threading.Thread):
             self._watching.append(address)
             self._lines.append(f"Watching memory at {address:03x}")
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
         if self._cur_command.startswith("unwatch"):
@@ -727,13 +762,15 @@ class RemoteControl(threading.Thread):
             self._watching.remove(address)
             self._lines.append(f"Stopped watching memory at {address:03x}")
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
 
         if self._cur_command.startswith("getmem"):
             address = eval(self._cur_command[6:])
-            self._lines.append(f"Memory at {address:03x}: {self._cpu._get_mem(address):03x}")
+            self._lines.append(
+                f"Memory at {address:03x}: {self._cpu._get_mem(address):03x}"
+            )
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
         if self._cur_command.startswith("setmem"):
@@ -744,7 +781,7 @@ class RemoteControl(threading.Thread):
             self._cpu._set_mem(address, value)
             self._lines.append(f"Memory at {address:03x} set to {value:03x}")
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
         if self._cur_command.startswith("exit"):
@@ -759,7 +796,7 @@ class RemoteControl(threading.Thread):
             self._cpu._memory.clear()
             self._lines.append(f"Cleared memory")
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
         if self._cur_command.startswith("setreg"):
@@ -771,7 +808,7 @@ class RemoteControl(threading.Thread):
 
             self._lines.append(f"Register {reg} set to {value}")
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
         if self._cur_command.startswith("getreg"):
@@ -779,7 +816,7 @@ class RemoteControl(threading.Thread):
 
             self._lines.append(f"Register {reg}: {self._cpu._registers[reg]}")
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
         if self._cur_command.startswith("setpc"):
@@ -789,22 +826,25 @@ class RemoteControl(threading.Thread):
 
             self._lines.append(f"PC set to {pc}")
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
         if self._cur_command.startswith("getpc"):
             self._lines.append(f"PC: {self._cpu._pc}")
             self._last_command = self._cur_command
-            self._cur_command = ''
+            self._cur_command = ""
             return
 
         self._lines.append(f"Unknown command: {self._cur_command}")
         self._last_command = self._cur_command
-        self._cur_command = ''
+        self._cur_command = ""
 
     def handle_x1b(self, data):
-        if data == b'[A':
-            self._cur_command, self._last_command = self._last_command, self._cur_command
+        if data == b"[A":
+            self._cur_command, self._last_command = (
+                self._last_command,
+                self._cur_command,
+            )
             return
 
         print(f"[RC] Got escape sequence: {data}")
@@ -813,28 +853,28 @@ class RemoteControl(threading.Thread):
         client, addr = self._server.accept()
         print(f"[RC] Connected to {addr}")
         client.send(
-            b'Connected successfully\r\n'
-            b'Assuming screen size of 80x24\r\n'
-            b'Commands:\r\n'
-            b'exit - Exit the emulator\r\n'
-            b'ss {X} {Y} - Set the screen size to X by Y\r\n'
-            b'watch {X} - Watch memory at address X\r\n'
-            b'unwatch {X} - Stop watching memory at address X\r\n'
-            b'start - Start the CPU\r\n'
-            b'stop - Stop the CPU\r\n'
-            b'getmem {X} - Get the value at memory address X\r\n'
-            b'setmem {X} {Y} - Set the value at memory address X to Y\r\n'
-            b'loadscp {X} - Load the SCP file at X\r\n'
-            b'loadimg {X} {Y} - Load the image at X into memory at Y\r\n'
-            b'watchimg {X} {Y} {Z} - Watch the image at X of size YxZ\r\n'
-            b'unwatchimg {X} - Stop watching the image at X\r\n'
-            b'clearmem - Clear the memory\r\n'
-            b'setreg {X} {Y} - Set register X to Y\r\n'
-            b'getreg {X} - Get the value of register X\r\n'
-            b'setpc {X} - Set the PC to X\r\n'
-            b'getpc - Get the value of the PC\r\n'
-            b'\r\n'
-            b'Press any key to continue\r\n'
+            b"Connected successfully\r\n"
+            b"Assuming screen size of 80x24\r\n"
+            b"Commands:\r\n"
+            b"exit - Exit the emulator\r\n"
+            b"ss {X} {Y} - Set the screen size to X by Y\r\n"
+            b"watch {X} - Watch memory at address X\r\n"
+            b"unwatch {X} - Stop watching memory at address X\r\n"
+            b"start - Start the CPU\r\n"
+            b"stop - Stop the CPU\r\n"
+            b"getmem {X} - Get the value at memory address X\r\n"
+            b"setmem {X} {Y} - Set the value at memory address X to Y\r\n"
+            b"loadscp {X} - Load the SCP file at X\r\n"
+            b"loadimg {X} {Y} - Load the image at X into memory at Y\r\n"
+            b"watchimg {X} {Y} {Z} - Watch the image at X of size YxZ\r\n"
+            b"unwatchimg {X} - Stop watching the image at X\r\n"
+            b"clearmem - Clear the memory\r\n"
+            b"setreg {X} {Y} - Set register X to Y\r\n"
+            b"getreg {X} - Get the value of register X\r\n"
+            b"setpc {X} - Set the PC to X\r\n"
+            b"getpc - Get the value of the PC\r\n"
+            b"\r\n"
+            b"Press any key to continue\r\n"
         )
         print(f"[RC] Waiting on client input")
         _ = client.recv(1)
@@ -855,17 +895,17 @@ class RemoteControl(threading.Thread):
             if not data:
                 continue
 
-            if data == b'\x1b':
+            if data == b"\x1b":
                 self.handle_x1b(client.recv(2))
                 continue
 
             if data[0] in range(32, 127):
-                self._cur_command += data.decode('utf-8')
+                self._cur_command += data.decode("utf-8")
 
-            if data == b'\x7f':
+            if data == b"\x7f":
                 self._cur_command = self._cur_command[:-1]
 
-            if data == b'\r':
+            if data == b"\r":
                 self._lines.append(f"\033[32mCommand\033[0m {self._cur_command}")
 
                 try:
@@ -891,7 +931,7 @@ if __name__ == "__main__":
         # r"ss 80 50",  # can be changed in putty settings
         r"loadscp .\examples\emulator_test.scp",
         r"watch 0xFFF",
-        r"loadimg .\image.ppm 1024",
+        r"loadimg .\examples\image.ppm 1024",
         r"watchimg 1024 24 24",
         r"watchimg 2048 24 24",
     ]:
@@ -899,5 +939,3 @@ if __name__ == "__main__":
 
     cpu.start()
     screen.run()
-
-

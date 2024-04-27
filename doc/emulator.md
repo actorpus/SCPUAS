@@ -6,7 +6,7 @@ Pygame is required to run the emulator. You can install it using pip
 Putty is required to connect to the emulator, [here](https://putty.org/).
 
 ## Usage
-The emulator is ran as a standard python file.
+The emulator is run as a standard python file.
 
 ### Putty
 - Open putty
@@ -31,4 +31,9 @@ The emulator is ran as a standard python file.
 - loadscp {X} - Load the SCP file at X
 - loadimg {X} {Y} - Load the image at X into memory at Y
 - watchimg {X} {Y} {Z} - Watch the image at X of size YxZ
-- unwatchimg {X} - Stop watching the image at X
+- unwatchimg {X} - Stop watching the image at X 
+- clearmem - Clear the memory
+- setreg {X} {Y} - Set register X to Y
+- getreg {X} - Get the value of register X
+- setpc {X} - Set the PC to X
+- getpc - Get the value of the P

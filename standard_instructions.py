@@ -510,7 +510,9 @@ class _asl:
     rd = REGISTER | REQUIRED
 
     @staticmethod
-    def compile(rd, ):
+    def compile(
+        rd,
+    ):
         value = rd << 2
 
         return f"F{value:1x}0B"

@@ -22,7 +22,7 @@ VALUE = 8
 UNCHECKED = 16
 
 
-class _PreComputeFlag():
+class _PreComputeFlag:
     def __init__(self, _class):
         self.origin = _class
 
@@ -53,7 +53,9 @@ class Instruction(type):
     @staticmethod
     def create(insts_ref: dict[str,]):
         if type(insts_ref) != dict:
-            _log.critical(f"Error parsing instructions reference, expected dict, got '{type(insts_ref)}'")
+            _log.critical(
+                f"Error parsing instructions reference, expected dict, got '{type(insts_ref)}'"
+            )
 
         _log.debug(f"Creating new instruction wrapper")
 
@@ -79,11 +81,15 @@ class Instruction(type):
 
             args_by_func = inspect.getfullargspec(_class.compile).args
 
-
             if pc:
-                args_by_func = [arg for arg in args_by_func if arg not in [
-                    "_root",
-                ]]
+                args_by_func = [
+                    arg
+                    for arg in args_by_func
+                    if arg
+                    not in [
+                        "_root",
+                    ]
+                ]
 
             if set(args) != set(args_by_func):
                 _log.critical(
@@ -138,7 +144,7 @@ class Instruction(type):
                 return f"<PreComputedInstruction '{cls.instruction}' wrapping '{cls.__orig_class__.__name__}'>"
 
             if name.startswith("_"):
-                name = '.' + name[1:]
+                name = "." + name[1:]
 
             arguments = OrderedDict()
 
@@ -147,50 +153,50 @@ class Instruction(type):
 
             if not pc:
                 n_args = {
-                    'instruction': name,
-                    'compile': compile_wrapper,
-                    'arguments': arguments,
-                    'total_arguments': len(arguments),
-                    'required_arguments': len(
+                    "instruction": name,
+                    "compile": compile_wrapper,
+                    "arguments": arguments,
+                    "total_arguments": len(arguments),
+                    "required_arguments": len(
                         [arg for arg in arguments if arguments[arg] & REQUIRED]
                     ),
-                    '__doc__': _class.__doc__,
-                    '__rep__': ref,
-                    '__orig_class__': _class,
+                    "__doc__": _class.__doc__,
+                    "__rep__": ref,
+                    "__orig_class__": _class,
                 }
 
                 new_class = Instruction(
-                    "GeneratedInstruction",
-                    (Instruction, object),
-                    n_args
+                    "GeneratedInstruction", (Instruction, object), n_args
                 )
 
-                _log.debug(f"Instruction '{name}' wrapped to '{new_class.__name__}', adding to reference")
+                _log.debug(
+                    f"Instruction '{name}' wrapped to '{new_class.__name__}', adding to reference"
+                )
 
                 insts_ref[name] = new_class
 
                 return new_class
 
             n_args = {
-                'instruction': name,
-                'precompute_compile': _class.compile,
-                'arguments': arguments,
-                'total_arguments': len(arguments),
-                'required_arguments': len(
+                "instruction": name,
+                "precompute_compile": _class.compile,
+                "arguments": arguments,
+                "total_arguments": len(arguments),
+                "required_arguments": len(
                     [arg for arg in arguments if arguments[arg] & REQUIRED]
                 ),
-                '__doc__': _class.__doc__,
-                '__rep__': ref_pc,
-                '__orig_class__': _class,
+                "__doc__": _class.__doc__,
+                "__rep__": ref_pc,
+                "__orig_class__": _class,
             }
 
             new_class = Instruction(
-                "GeneratedInstruction",
-                (Instruction, object),
-                n_args
+                "GeneratedInstruction", (Instruction, object), n_args
             )
 
-            _log.debug(f"Instruction '{name}' wrapped to '{new_class.__name__}', adding to reference")
+            _log.debug(
+                f"Instruction '{name}' wrapped to '{new_class.__name__}', adding to reference"
+            )
 
             insts_ref[name] = new_class
 
@@ -199,12 +205,11 @@ class Instruction(type):
         return class_wrapper
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
     i = {}
     print("TESTING")
-
 
     @Instruction.create(i)
     class __str:
@@ -213,7 +218,6 @@ if __name__ == '__main__':
         @staticmethod
         def compile(data: str):
             return "00a0"
-
 
     @Instruction.create(i)
     class _add:
@@ -226,12 +230,11 @@ if __name__ == '__main__':
 
             return f"1{reg:1x}{kk:02x}"
 
-
     for inst in i:
         print(inst, i[inst])
 
-    assert i['.str'].compile("a") == ['00A0']
-    assert i['add'].compile(1, 2) == ['1402']
+    assert i[".str"].compile("a") == ["00A0"]
+    assert i["add"].compile(1, 2) == ["1402"]
 
     print("TESTING PASSED")
 

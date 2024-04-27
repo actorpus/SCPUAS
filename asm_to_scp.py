@@ -12,9 +12,11 @@ Usage:
 
 Hours crying: 7
 """
+
 import os
 import sys
 import subprocess
+
 
 def swap(name):
     with open(name) as file:
@@ -59,7 +61,7 @@ def swap(name):
     new_code = new_code.replace("jumpnz RA", "jumpnz")
     new_code = new_code.replace("call RA", "call")
 
-        # new_code = new_code.replace(f"asl R{_} R{__}", f"aslr R{_} R{__}")
+    # new_code = new_code.replace(f"asl R{_} R{__}", f"aslr R{_} R{__}")
 
     # search for runs of .data commands
     runs = []
@@ -70,16 +72,22 @@ def swap(name):
     for i, line in enumerate(new_code):
         line = line.strip()
 
-        if line.startswith(".data") and int(line.split(" ")[1].replace("0x", ''), 16) in range(32, 128):
+        if line.startswith(".data") and int(
+            line.split(" ")[1].replace("0x", ""), 16
+        ) in range(32, 128):
             if not in_run:
                 in_run = True
-                runs.append([(i, chr(int(line.split(" ")[1].replace("0x", ''), 16)))])
+                runs.append([(i, chr(int(line.split(" ")[1].replace("0x", ""), 16)))])
             else:
-                runs[-1].append((i, chr(int(line.split(" ")[1].replace("0x", ''), 16))))
+                runs[-1].append((i, chr(int(line.split(" ")[1].replace("0x", ""), 16))))
 
-        elif in_run and line.startswith(".data") and int(line.split(" ")[1].replace("0x", ''), 16) == 0:
+        elif (
+            in_run
+            and line.startswith(".data")
+            and int(line.split(" ")[1].replace("0x", ""), 16) == 0
+        ):
             in_run = False
-            runs[-1].append((i, '\x00'))
+            runs[-1].append((i, "\x00"))
 
         else:
             in_run = False
@@ -89,15 +97,15 @@ def swap(name):
     for run in runs:
         index = run[0][0]
         spacing = new_code[index].split(".data")[0]
-        word = ''.join([char for _, char in run])
+        word = "".join([char for _, char in run])
 
-        if run[-1][1] == '\x00':
+        if run[-1][1] == "\x00":
             inst = ".strn"
             word = word[:-1]
         else:
             inst = ".str"
 
-        new_code[index] = f"{spacing}{inst} \"{word}\""
+        new_code[index] = f'{spacing}{inst} "{word}"'
 
         for i, _ in run[1:]:
             # flag, remove line
@@ -131,7 +139,9 @@ def swap(name):
         else:
             in_run = False
 
-    comments, blocks = [run for run in runs if not len(run) > 2], [run for run in runs if len(run) > 2]
+    comments, blocks = [run for run in runs if not len(run) > 2], [
+        run for run in runs if len(run) > 2
+    ]
 
     for run in comments:
         index = run[0][0]
@@ -188,16 +198,19 @@ def swap(name):
 
         new_code.append(line)
 
-    new_code = '\n'.join(new_code)
+    new_code = "\n".join(new_code)
 
-    new_code = """# Converted from .asm to .scp
+    new_code = (
+        """# Converted from .asm to .scp
 -language: standard
-""" + new_code
+"""
+        + new_code
+    )
 
     return new_code
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if not len(sys.argv) > 1:
         print("Usage: python asm_to_scp.py *<file> <output>.scp")
         raise SystemExit
