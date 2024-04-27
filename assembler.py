@@ -75,7 +75,7 @@ class RegisterRef:
 
             raise SystemExit
 
-        if argument[1] not in "ABCDEFGHIJKLMNOP":
+        if argument[1] not in "ABCD":
             _log.critical(
                 f"Register reference '{argument}' is not a valid register. Exiting."
             )
