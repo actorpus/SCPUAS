@@ -37,6 +37,7 @@ class _move:
     RTL                :    RX <- ( (K7)8 || KK )
     Flags set          :    None
     """
+    __rtl__ = "{0} <- {1}"
 
     # All local variables will be counted as arguments for
     # the instruction, in this case the move instruction
@@ -70,6 +71,7 @@ class _add:
     RTL                :    RX <- RX + ( (K7)8 || KK )
     Flags set          :    Z,C,O,P,N
     """
+    __rtl__ = "{0} <- {0} + {1}"
 
     rd = REGISTER | REQUIRED
     kk = VALUE
@@ -90,6 +92,7 @@ class _sub:
     RTL                :    RX <- RX - ( (K7)8 || KK )
     Flags set          :    Z,C,O,P,N
     """
+    __rtl__ = "{0} <- {0} - {1}"
 
     rd = REGISTER | REQUIRED
     kk = VALUE
@@ -110,6 +113,7 @@ class _and:
     RTL                :    RX <- RX & ( (0)8 || KK )
     Flags set          :    Z,C,O,P,N
     """
+    __rtl__ = "{0} <- {0} & {1}"
 
     rd = REGISTER | REQUIRED
     kk = VALUE
@@ -130,6 +134,8 @@ class _load:
     RTL                :    RA <- M[AAA]
     Flags set          :    None
     """
+    __rtl__ = "RA <- M[{0}]"
+
     aaa = VALUE
 
     @staticmethod
@@ -146,6 +152,8 @@ class _store:
     RTL                :    M[AAA] <- RA
     Flags set          :    None
     """
+    __rtl__ = "M[{0}] <- RA"
+
     aaa = VALUE
 
     @staticmethod
@@ -162,6 +170,8 @@ class _addm:
     RTL                :    RA <- RA + M[AAA]
     Flags set          :    Z,C,O,P,N
     """
+    __rtl__ = "RA <- RA + M[{0}]"
+
     aaa = VALUE
 
     @staticmethod
@@ -178,6 +188,8 @@ class _subm:
     RTL                :    RA <- RA - M[AAA]
     Flags set          :    Z,C,O,P,N
     """
+    __rtl__ = "RA <- RA - M[{0}]"
+
     aa = VALUE
 
     @staticmethod
@@ -194,6 +206,8 @@ class _jump:
     RTL                :    PC <- AAA
     Flags set          :    None
     """
+    __rtl__ = "PC <- {0}"
+
     aa = VALUE
 
     @staticmethod
@@ -210,6 +224,8 @@ class _jumpz:
     RTL                :    IF Z=1 THEN PC <- AAA ELSE PC <- PC + 1
     Flags set          :    None
     """
+    __rtl__ = "if Zero:\n    PC <- {0}\nelse:\n    PC <- PC + 1"
+
     aa = VALUE
 
     @staticmethod
@@ -228,6 +244,8 @@ class _jumpnz:
     RTL                :    IF Z=0 THEN PC <- AAA ELSE PC <- PC + 1
     Flags set          :    None
     """
+    __rtl__ = "if not Zero:\n    PC <- {0}\nelse:\n    PC <- PC + 1"
+
     aa = VALUE
 
     @staticmethod
@@ -244,6 +262,8 @@ class _jumpc:
     RTL                :    IF C=1 THEN PC <- AAA ELSE PC <- PC + 1
     Flags set          :    None
     """
+    __rtl__ = "if Carry:\n    PC <- {0}\nelse:\n    PC <- PC + 1"
+
     aa = VALUE
 
     @staticmethod
@@ -262,6 +282,8 @@ class _call:
                        :    PC <- AAA
     Flags set          :    None
     """
+    __rtl__ = "STACK[SP]<- PC + 1\nSP <- SP + 1\nPC <- {0}"
+
     aa = VALUE
 
     @staticmethod
@@ -278,6 +300,7 @@ class _or:
     RTL                :    RX <- RX | ( (0)8 || KK )
     Flags set          :    Z,C,O,P,N
     """
+    __rtl__ = "{0} <- {0} | {1}"
 
     rd = REGISTER | REQUIRED
     kk = VALUE
@@ -302,6 +325,7 @@ class _ret:
                        :    PC <- STACK[SP]
     Flags set          :    None
     """
+    __rtl__ = "SP <- SP - 1\nPC <- STACK[SP]"
 
     @staticmethod
     def compile():
@@ -318,6 +342,8 @@ class _mover:
     RTL                :    RX <- RY
     Flags set          :    None
     """
+    __rtl__ = "{0} <- {1}"
+
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -337,6 +363,8 @@ class _loadr:
     RTL                :    RX <- M[RY]
     Flags set          :    None
     """
+    __rtl__ = "{0} <- M[{1}]"
+
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -356,6 +384,8 @@ class _storer:
     RTL                :    M[RY] <- RX
     Flags set          :    None
     """
+    __rtl__ = "M[{1}] <- {0}"
+
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -375,6 +405,8 @@ class _rol:
     RTL                :    RX <- ( RX(14:0) || RX(15) )
     Flags set          :    Z,C,O,P,N
     """
+    __rtl__ = "{0} <- ( {0}(14:0) || {0}(15) )"
+
     rsd = REGISTER | REQUIRED
 
     @staticmethod
@@ -393,6 +425,7 @@ class _ror:
     RTL                :    RX <- ( RX(0) || RX(15:1) )
     Flags set          :    Z,C,O,P,N
     """
+    __rtl__ = "{0} <- ( {0}(0) || {0}(15:1) )"
 
     rsd = REGISTER | REQUIRED
 
@@ -412,6 +445,8 @@ class _addr:
     RTL                :    RX <- RX + RY
     Flags set          :    Z,C,O,P,N
     """
+    __rtl__ = "{0} <- {0} + {1}"
+
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -431,6 +466,8 @@ class _subr:
     RTL                :    RX <- RX - RY
     Flags set          :    Z,C,O,P,N
     """
+    __rtl__ = "{0} <- {0} - {1}"
+
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -450,6 +487,8 @@ class _andr:
     RTL                :    RX <- RX & RY
     Flags set          :    Z,C,O,P,N
     """
+    __rtl__ = "{0} <- {0} & {1}"
+
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -469,6 +508,8 @@ class _orr:
     RTL                :    RX <- RX | RY
     Flags set          :    Z,C,O,P,N
     """
+    __rtl__ = "{0} <- {0} | {1}"
+
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -488,6 +529,8 @@ class _xorr:
     RTL                :    RX <- RX + RY    
     Flags set          :    Z,C,O,P,N
     """
+    __rtl__ = "{0} <- {0} + {1}"
+
     rd = REGISTER | REQUIRED
     rs = REGISTER
 
@@ -507,6 +550,8 @@ class _asl:
     RTL                :    RX <- ( RX(14:0) || 0 )
     Flags set          :    Z,C,O,P,N
     """
+    __rtl__ = "{0} <- ( {0}(14:0) || 0 )"
+
     rd = REGISTER | REQUIRED
 
     @staticmethod

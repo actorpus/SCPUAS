@@ -28,6 +28,7 @@ class _PreComputeFlag:
 
 class Instruction(type):
     __rep__: Callable
+    __rtl__: str
     arguments: OrderedDict
     required_arguments: int
     total_arguments: int
@@ -74,6 +75,7 @@ class Instruction(type):
                 "compile",
                 "__module__",
                 "__doc__",
+                "__rtl__",
                 "__weakref__",
                 "__dict__",
             }
@@ -142,6 +144,12 @@ class Instruction(type):
             def ref_pc(cls):
                 return f"<PreComputedInstruction '{cls.instruction}' wrapping '{cls.__orig_class__.__name__}'>"
 
+            rtl = "Unknown"
+
+            if '__rtl__' in _class.__dict__:
+                rtl = _class.__rtl__
+
+
             if name.startswith("_"):
                 name = "." + name[1:]
 
@@ -160,6 +168,7 @@ class Instruction(type):
                         [arg for arg in arguments if arguments[arg] & REQUIRED]
                     ),
                     "__doc__": _class.__doc__,
+                    "__rtl__": rtl,
                     "__rep__": ref,
                     "__orig_class__": _class,
                 }
@@ -185,6 +194,7 @@ class Instruction(type):
                     [arg for arg in arguments if arguments[arg] & REQUIRED]
                 ),
                 "__doc__": _class.__doc__,
+                "__rtl__": rtl,
                 "__rep__": ref_pc,
                 "__orig_class__": _class,
             }

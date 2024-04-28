@@ -1424,6 +1424,9 @@ def generate_dec(
         "orr": "or",
         "xorr": "xor",
         "alsr": "als",
+        "addm": "add",
+        "subm": "sub",
+        "jump": "jumpu"
     }
 
     rendered_imports = []
