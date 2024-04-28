@@ -37,3 +37,14 @@ The emulator is run as a standard python file.
 - getreg {X} - Get the value of register X
 - setpc {X} - Set the PC to X
 - getpc - Get the value of the P
+
+
+# Notes
+
+Yes I have looked into precomiling the scp into python 
+files then running thous to avoid the ~20% execution time
+of decoding the instructions. No not worth it, the unreadability
+of the precompiled python files plus the fact that self
+modifying code literally would not be possible makes it
+pointless, I have a working asm -> python converter if 
+anyone wants it though.

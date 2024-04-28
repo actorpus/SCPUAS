@@ -664,8 +664,10 @@ class __halt:
 if __name__ == "__main__":
     from pprint import pprint
 
+
     pprint(instructions)
     print(instructions["move"].arguments)
+    pprint(instructions["move"].compile(3, 69))
     print(instructions["rol"].compile(3))
     print(instructions[".chr"].compile("A"))
     print(instructions[".strn"].compile('"Hello, World! " "'))
