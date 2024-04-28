@@ -1059,6 +1059,10 @@ def rooted_instructions_rearranger(
     new_roots: RootedInstructionsStruct = OrderedDict()
 
     # Priority one is allwats start
+    if "start" not in roots:
+        _log.critical("No start root found. Exiting.")
+        raise SystemExit
+
     new_roots["start"] = roots["start"]
     del roots["start"]
 
@@ -1104,6 +1108,33 @@ def parse_dynamic_token(
     return token
 
 
+
+_parse_argument_log = logging.getLogger("ArgumentParser")
+def parse_argument(argument, flags, roots):
+    # the required flag is already dealt with
+    if flags & UNCHECKED:
+        return argument
+
+    ref, reg, val = flags & REFERENCE, flags & REGISTER, flags & VALUE
+
+    _parse_argument_log.debug(roots)
+
+    if ref and str(argument).replace("~", '') in roots:
+        _parse_argument_log.debug(f"Found reference '{argument}' in roots.")
+        return argument
+
+    if reg:
+        try:
+            return RegisterRef(argument)
+        except SystemExit:
+            _parse_argument_log.warning("Failed to parse register reference, falling back to value if available.")
+
+    if val:
+        return parse_dynamic_token(argument)
+
+    _parse_argument_log.critical(f"Unknown argument type '{flags}' for argument {argument}. Exiting.")
+    raise SystemExit
+
 def rooted_instructions_argument_parser(
     roots: RootedInstructionsStruct,
 ) -> RootedInstructionsStruct:
@@ -1112,6 +1143,8 @@ def rooted_instructions_argument_parser(
     Verify all arguments are correct types (converting where necessary).
     """
     _log = logging.getLogger("ArgumentParser")
+
+    pressed_roots = {_.replace("~", "") for _ in roots.keys()}
 
     for root in roots:
         for instruction in roots[root]:
@@ -1133,46 +1166,14 @@ def rooted_instructions_argument_parser(
                         )
 
                         print_debug(org)
-
                         raise SystemExit
 
                     if i >= len(arguments):
                         continue
 
-                    if instruction_flags & UNCHECKED:
-                        continue
+                    dynam = parse_dynamic_token(arguments[i])
 
-                    if instruction_flags & REGISTER:
-                        arguments[i] = RegisterRef(arguments[i], org)
-                        _log.debug(
-                            f"For {root}: {name}, Converted argument {i} to register reference."
-                        )
-
-                    if instruction_flags & REFERENCE and arguments[i] not in [
-                        _.replace("~", "") for _ in roots
-                    ]:
-                        _log.critical(
-                            f"Argument {i} ({arguments[i]}) of instruction {root}: '{name}' must be a valid reference. Exiting."
-                        )
-
-                        print_debug(org)
-
-                        raise SystemExit
-
-                    arguments[i] = parse_dynamic_token(arguments[i])
-
-                    if (
-                        instruction_flags & VALUE
-                        and isinstance(arguments[i], str)
-                        and arguments[i] not in [_.replace("~", "") for _ in roots]
-                    ):
-                        _log.critical(
-                            f"Argument {i} ({arguments[i]}) of instruction '{name}' must be a valid token. Exiting. {[_.replace("~", "") for _ in roots]}"
-                        )
-
-                        print_debug(org)
-
-                        raise SystemExit
+                    arguments[i] = parse_argument(dynam, instruction_flags, pressed_roots)
 
     return roots
 
@@ -1198,27 +1199,28 @@ def rooted_instructions_compiler(
                 flags = list(Inst.arguments.values())[i]
                 arg = instruction["arguments"][i]
 
+                if flags & UNCHECKED:
+                    _log.debug(f"Dummy: Skipping unchecked argument '{arg}'.")
+                    dummy_args.append(arg)
+                    continue
+
                 if arg in pressed_roots:
+                    _log.debug(f"Dummy: Replacing {arg} with 0")
                     dummy_args.append(0)
                     continue
 
-                if flags & UNCHECKED:
+                if isinstance(arg, int):
+                    _log.debug(f"Dummy: parsed integer argument '{arg}'.")
                     dummy_args.append(arg)
                     continue
 
-                if flags & REGISTER:
+                if isinstance(arg, RegisterRef):
+                    _log.debug(f"Dummy: parsed register reference argument '{arg}'.")
                     dummy_args.append(arg.value)
                     continue
 
-                if isinstance(arg, int):
-                    dummy_args.append(arg)
-                    continue
-
-                else:
-                    _log.critical(
-                        f"Unknown argument type '{flags}' for argument {root}: {instruction['name']}<-{arg}. Exiting."
-                    )
-                    raise SystemExit
+                if arg is None:
+                    _log.warning("Dummy: Found None argument.")
 
             instruction["length"] = len(Inst.compile(*dummy_args))
 
@@ -1249,6 +1251,8 @@ def rooted_instructions_compiler(
             args = instruction["arguments"]
 
             for i in range(len(args)):
+                _log.debug(f"Checking argument {i} ({args[i]}) of instruction '{root}: {instruction['name']}'.")
+
                 if isinstance(args[i], RegisterRef):
                     args[i] = args[i].value
                     continue
@@ -1460,6 +1464,56 @@ def generate_dec(
     dead_mappings = []
     dead_instructions = {}
 
+    pressed_root_mappings = {}
+
+    for k, v in root_mappings.items():
+        k = k.replace("~", "")
+
+        if k not in root_mappings:
+            pressed_root_mappings[k] = v
+            continue
+
+        # This could cause bugs later but 99% you would never not want to jump to the first instance
+        _log.debug(f"Found pressed root '{k}' in root mappings.")
+
+    _log.debug(roots)
+
+    iroot = iter(roots.keys())
+
+    while True:
+        try:
+            root = next(iroot)
+        except StopIteration:
+            break
+
+        _log.debug(f"Checking root {root}")
+        dead = []
+
+        _log.debug(roots[root])
+
+        while not roots[root]:
+            _log.debug(f"Root {root} is dead ({roots[root]}), moving to next root")
+
+            dead.append(root)
+            root = next(iroot)
+
+            _log.debug(f"Moving to root {root}")
+
+        _log.debug(f"{dead=} {root=}")
+
+
+        for d in dead:
+            d = d.replace("~", "")
+
+            if d not in pressed_root_mappings:
+                pressed_root_mappings[d] = root_mappings[root]
+
+        pressed_root_mappings[root.replace("~", "")] = root_mappings[root]
+
+
+    _log.debug(pprint.pformat(root_mappings))
+    _log.debug(pprint.pformat(pressed_root_mappings))
+
     output = ""
     for root in roots:
         if not roots[root]:
@@ -1480,8 +1534,10 @@ def generate_dec(
                 for i, arg in enumerate(instruction["arguments"]):
                     orig_arg = instruction["original"][i]
 
-                    if orig_arg in root_mappings:
-                        args.append(root_mappings[orig_arg])
+                    # print(orig_arg, pprint.pformat(pressed_root_mappings))
+
+                    if orig_arg in pressed_root_mappings:
+                        args.append(pressed_root_mappings[orig_arg])
                         continue
 
                     re_interp = parse_dynamic_token(orig_arg)
