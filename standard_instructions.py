@@ -18,7 +18,7 @@ based on reference arguments.
 
 import logging
 
-from scp_instruction import Instruction, REQUIRED, REGISTER, VALUE, UNCHECKED
+from scp_instruction import Instruction, REQUIRED, REGISTER, VALUE, UNCHECKED, REFERENCE
 
 _log = logging.getLogger("DefaultInstructions")
 instructions: dict[str, Instruction] = {}
@@ -136,7 +136,7 @@ class _load:
     """
     __rtl__ = "RA <- M[{0}]"
 
-    aaa = VALUE
+    aaa = REFERENCE | VALUE
 
     @staticmethod
     def compile(aaa=0):
@@ -154,7 +154,7 @@ class _store:
     """
     __rtl__ = "M[{0}] <- RA"
 
-    aaa = VALUE
+    aaa = REFERENCE | VALUE
 
     @staticmethod
     def compile(aaa=0):
@@ -172,7 +172,7 @@ class _addm:
     """
     __rtl__ = "RA <- RA + M[{0}]"
 
-    aaa = VALUE
+    aaa = REFERENCE | VALUE
 
     @staticmethod
     def compile(aaa=0):
@@ -190,7 +190,7 @@ class _subm:
     """
     __rtl__ = "RA <- RA - M[{0}]"
 
-    aa = VALUE
+    aa = REFERENCE | VALUE
 
     @staticmethod
     def compile(aa=0):
@@ -208,7 +208,7 @@ class _jump:
     """
     __rtl__ = "PC <- {0}"
 
-    aa = VALUE
+    aa = REFERENCE
 
     @staticmethod
     def compile(aa=0):
@@ -226,7 +226,7 @@ class _jumpz:
     """
     __rtl__ = "if Zero:\n    PC <- {0}\nelse:\n    PC <- PC + 1"
 
-    aa = VALUE
+    aa = REFERENCE
 
     @staticmethod
     def compile(aa=0):
@@ -246,7 +246,7 @@ class _jumpnz:
     """
     __rtl__ = "if not Zero:\n    PC <- {0}\nelse:\n    PC <- PC + 1"
 
-    aa = VALUE
+    aa = REFERENCE
 
     @staticmethod
     def compile(aa=0):
@@ -264,7 +264,7 @@ class _jumpc:
     """
     __rtl__ = "if Carry:\n    PC <- {0}\nelse:\n    PC <- PC + 1"
 
-    aa = VALUE
+    aa = REFERENCE
 
     @staticmethod
     def compile(aa=0):
@@ -284,7 +284,7 @@ class _call:
     """
     __rtl__ = "STACK[SP]<- PC + 1\nSP <- SP + 1\nPC <- {0}"
 
-    aa = VALUE
+    aa = REFERENCE
 
     @staticmethod
     def compile(aa=0):
