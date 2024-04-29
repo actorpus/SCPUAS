@@ -15,7 +15,10 @@ Minimum python version: 3.12 (pretty sure this is because of like 2 f strings so
 ## Docs
 
 [assembler docs](doc/assembler.md)
+
 [emulator docs](doc/emulator.md)
+
+[standard instruction docs](doc/instructions.md)
 
 -----
 
