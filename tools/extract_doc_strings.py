@@ -2,6 +2,7 @@ import ast
 import pathlib
 import logging
 import pprint
+import sys
 
 
 def extract_docstrings(filepath: pathlib.Path, output_filepath: pathlib.Path | None = None) -> dict[str: str]:
@@ -98,8 +99,11 @@ def extract_docstrings(filepath: pathlib.Path, output_filepath: pathlib.Path | N
     return doc_strings
 
 if __name__ == "__main__":
+    if not sys.argv[1:] or len(sys.argv) != 3:
+        print("Usage: python extract_doc_strings.py <file> <output>")
+        raise SystemExit
 
     doc_strings_list = extract_docstrings(
-        pathlib.Path('..', 'standard_instructions.py'),
-        pathlib.Path('..', 'doc', 'instructions.md')
+        pathlib.Path(sys.argv[1]),
+        pathlib.Path(sys.argv[2])
     )

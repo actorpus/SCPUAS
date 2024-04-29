@@ -653,6 +653,8 @@ class __strn:
 # Use the root '~insert:' to insert the new instructions to the current root.
 @Instruction.precompute
 class __halt:
+    __rtl__ = "PC <- PC"
+
     @staticmethod
     def compile(_root, *args):
         return f"""

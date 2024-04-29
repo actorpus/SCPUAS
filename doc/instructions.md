@@ -33,7 +33,7 @@
 | [.chr](#.chr) | Unknown |
 | [.str](#.str) | Unknown |
 | [.strn](#.strn) | Unknown |
-| [.halt](#.halt) | Unknown |      
+| [.halt](#.halt) | PC <- PC |      
 ## Instructions
 ### move
  ```
