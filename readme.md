@@ -15,8 +15,11 @@ Minimum python version: 3.12 (pretty sure this is because of like 2 f strings so
 ## Docs
 
 [assembler docs](doc/assembler.md)
+
 [emulator docs](doc/emulator.md)
+
 [standard instruction docs](doc/instructions.md)
+
 -----
 
 Feel free to contribute, all pr's are appreciated. Remember to update the readme
