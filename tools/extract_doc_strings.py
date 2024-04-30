@@ -1,7 +1,6 @@
 import ast
 import pathlib
 import logging
-import pprint
 import sys
 
 
@@ -96,9 +95,13 @@ def extract_docstrings(filepath: pathlib.Path, output_filepath: pathlib.Path | N
         with open(output_filepath, "w", encoding="utf8") as file:
             file.write(output)
 
+        logging.info("Docstrings extracted and saved to %s", output_filepath)
+
     return doc_strings
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+
     if not sys.argv[1:] or len(sys.argv) != 3:
         print("Usage: python extract_doc_strings.py <file> <output>")
         raise SystemExit
