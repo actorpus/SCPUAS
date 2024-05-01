@@ -46,7 +46,6 @@ start:
     loadr -loop RA RB
     add RA 0  # sets the zero flag if zero
     jumpz copyimg !!
-    xorr RA RB
     add RB 1
     store $portA$
     jump word.loop
