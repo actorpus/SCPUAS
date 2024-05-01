@@ -526,10 +526,10 @@ class _xorr:
     Example            :    xor ra rb
     Addressing mode    :    register
     Opcode             :    1111 + 1010
-    RTL                :    RX <- RX + RY    
+    RTL                :    RX <- RX ^ RY    
     Flags set          :    Z,C,O,P,N
     """
-    __rtl__ = "{0} <- {0} + {1}"
+    __rtl__ = "{0} <- {0} ^ {1}"
 
     rd = REGISTER | REQUIRED
     rs = REGISTER

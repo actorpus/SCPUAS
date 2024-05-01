@@ -27,7 +27,7 @@
 | [subr](#subr) | rd <- rd - rs |
 | [andr](#andr) | rd <- rd & rs |
 | [orr](#orr) | rd <- rd │ rs |
-| [xorr](#xorr) | rd <- rd + rs |
+| [xorr](#xorr) | rd <- rd ^ rs |
 | [asl](#asl) | rd <- ( rd(14:0) ││ 0 ) |
 | [.data](#.data) | Unknown |
 | [.chr](#.chr) | Unknown |
@@ -284,7 +284,7 @@ Xor (Register):
     Example            :    xor ra rb
     Addressing mode    :    register
     Opcode             :    1111 + 1010
-    RTL                :    RX <- RX + RY    
+    RTL                :    RX <- RX ^ RY    
     Flags set          :    Z,C,O,P,N
     
 ```

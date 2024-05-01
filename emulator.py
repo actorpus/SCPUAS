@@ -325,7 +325,18 @@ class CPU(threading.Thread):
         raise NotImplementedError
 
     def _XORR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        raise NotImplementedError
+        dest = ir11 << 1 | ir10
+        src = ir09 << 1 | ir08
+
+        v = int(self._registers[dest]) ^ int(self._registers[src])
+
+        self.__flags_carry = False
+        self.__flags_zero = v == 0
+        self.__flags_overflow = v > 0xFFFF
+        self.__flags_negative = v & 0x8000
+        self.__flags_positive = not self.__flags_negative
+
+        self._registers[dest] = v & 0xFFFF
 
     def _ASLR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         raise NotImplementedError

@@ -23,10 +23,10 @@ passthrough = ("@c│   \n"
                "@n────")
 
 split_right = ("@c│..@s  \n"
-               "@g├@n─.──")
+               "@g╠@n─.──")
 
 split_left = ("@c│ .  \n"
-              "@g┤@s  ")
+              "@g╣@s  ")
 
 standard = ("@c│   \n"
             "@c│   ")
@@ -46,6 +46,9 @@ def render_template(
 
     if not generated:
         generated = color
+
+    if symbol == ' ':
+        template = template.replace("╣", "┤").replace("╠", "├")
 
     template = template.replace(".", "")
     template = template.replace("@c", color)
@@ -295,6 +298,12 @@ def to_swap(padding, instruction, args):
         if extra != left:
             return rtl.count("\n") + 1
         sym = "|"
+
+    if '^' in right:
+        extra, right = right.split(" ^ ")
+        if extra != left:
+            return rtl.count("\n") + 1
+        sym = "^"
 
     mem = ""
 
