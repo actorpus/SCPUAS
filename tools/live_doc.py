@@ -73,6 +73,8 @@ def render(swaps, padding):
         "\033[36m",
     ]
 
+    all_colors = list(colors.values()) + unused_colors
+
     output += ''.join(f"{c}{k:4}" for k, c in colors.items() if k != "MEM") + "\033[0m\n"
     output += "   ".join([f"{v}│\033[0m" for k, v in colors.items() if k != "MEM"]) + "\n"
 
@@ -171,14 +173,18 @@ def render(swaps, padding):
         for _ in range(extra):
             output += "   ".join([f"{v}│\033[0m" for k, v in colors.items() if k != "MEM"]) + "\n"
 
-        if colors[to] not in [v for k, v in colors.items() if k != to]:
-            unused_colors.append(colors[to])
-
         if gen:
             colors[to] = unused_colors.pop(0)
 
         else:
             colors[to] = colors[frm]
+
+        unused_colors = list(set(all_colors) - set(colors.values()))
+
+        if frm == "MEM":
+            colors["MEM"] = unused_colors.pop(0)
+
+        unused_colors = list(set(all_colors) - set(colors.values()))
 
         output += '\n'.join(map(lambda x: ''.join(x), zip(*ren))) + ext + '\033[0m\n'
 
