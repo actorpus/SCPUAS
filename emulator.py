@@ -37,15 +37,15 @@ class CPU(threading.Thread):
             self.__root = root
 
         def __getitem__(self, key):
-            if key == 0xFFE:
-                print(f"Attempted to read from 0xffe, enabling debug mode")
+            if key == self.__root.debug_port:
+                print(f"Attempted to read from {self.__root.debug_port:x}, enabling debug mode")
                 self.__root.debug = True
 
             return self.__memory[key]
 
         def __setitem__(self, key, value):
-            if key == 0xFFE:
-                print(f"Attempted to write to 0xffe, enabling debug mode")
+            if key == self.__root.debug_port:
+                print(f"Attempted to write to {self.__root.debug_port:x}, enabling debug mode")
                 self.__root.debug = True
 
             if self.mem_change_hook:
@@ -78,6 +78,7 @@ class CPU(threading.Thread):
         self.enabled = False
         self.running = True
         self.debug = False
+        self.debug_port = -1
 
     def load_memory(self, at, memory):
         for i, c in enumerate(memory):
@@ -492,7 +493,8 @@ class PygameScreen:
 
         for y in range(size[1]):
             for x in range(size[0]):
-                value = self._cpu._memory[address + y * size[0] + x]
+                # horrible but avoids trigering the debug mode
+                value = self._cpu._memory._memwrap__memory[address + y * size[0] + x]
                 r = (value >> 11) << 3
                 g = ((value >> 5) & 0x3F) << 2
                 b = (value & 0x1F) << 3
@@ -855,6 +857,28 @@ class RemoteControl(threading.Thread):
             self._cur_command = ""
             return
 
+        if self._cur_command.startswith("enabledebug"):
+            self._cpu.debug = True
+            self._lines.append(f"Debug enabled")
+            self._last_command = self._cur_command
+            self._cur_command = ""
+            return
+
+        if self._cur_command.startswith("disabledebug"):
+            self._cpu.debug = False
+            self._lines.append(f"Debug disabled")
+            self._last_command = self._cur_command
+            self._cur_command = ""
+            return
+
+        if self._cur_command.startswith("setdebugtrigger"):
+            trigger = eval(self._cur_command[15:])
+            self._cpu.debug_port = trigger
+            self._lines.append(f"Debug trigger set to {trigger:x}")
+            self._last_command = self._cur_command
+            self._cur_command = ""
+            return
+
         self._lines.append(f"Unknown command: {self._cur_command}")
         self._last_command = self._cur_command
         self._cur_command = ""
@@ -893,6 +917,9 @@ class RemoteControl(threading.Thread):
             b"getreg {X} - Get the value of register X\r\n"
             b"setpc {X} - Set the PC to X\r\n"
             b"getpc - Get the value of the PC\r\n"
+            b"enabledebug - Enable debug mode\r\n"
+            b"disabledebug - Disable debug mode\r\n"
+            b"setdebugtrigger {X} - Set the debug trigger to X\r\n"
             b"\r\n"
             b"Press any key to continue\r\n"
         )
@@ -954,6 +981,7 @@ if __name__ == "__main__":
         r"loadimg .\examples\image.ppm 1024",
         r"watchimg 1024 24 24",
         r"watchimg 2048 24 24",
+        r"setdebugtrigger 0xffe"
     ]:
         rc.run_command_ext(_)
 
