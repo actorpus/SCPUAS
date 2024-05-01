@@ -156,15 +156,28 @@ def render(swaps, padding):
 
         # RD
         if frm == "RD":
-            ren.append(render_template(split_left, colors["RD"], colors["RD"]))
+            # ren.append(render_template(split_left, colors["RD"], colors["RD"]))
+            if to in ["RA", "RB", "RC"]:
+                ren.append(render_template(split_left, colors["RD"], colors["RD"]))
+            else:
+                ren.append(render_template(split_right, colors["RD"], colors["RD"]))
         elif to == "RD":
-            ren.append(render_template(
-                split_left if gen else overwrite_left,
-                colors["RD"],
-                colors[frm],
-                unused_colors[0] if gen else colors[frm],
-                sym
-            ))
+            if frm in ["RA", "RB", "RC"]:
+                ren.append(render_template(
+                    split_left if gen else overwrite_left,
+                    colors["RD"],
+                    colors[frm],
+                    unused_colors[0] if gen else colors[frm],
+                    sym
+                ))
+            else:
+                ren.append(render_template(
+                    split_right if gen else overwrite_right,
+                    colors["RD"],
+                    colors[frm],
+                    unused_colors[0] if gen else colors[frm],
+                    sym
+                ))
         elif lcv.index(to) < lcv.index("RD") < lcv.index(frm) or lcv.index(to) > lcv.index("RD") > lcv.index(frm):
             ren.append(render_template(passthrough, colors["RD"], colors[frm]))
         else:
