@@ -135,6 +135,64 @@ def render(swaps, padding):
     return output
 
 
+def post_render(rn):
+    rn = rn.split("\n")
+    new_rn = []
+    in_ansii = False
+    cur_color = "\033[0m"
+
+    for line in rn:
+        new_rn.append([])
+
+        for char in line:
+            if char == "\033":
+                in_ansii = True
+                new_rn[-1].append(char)
+                continue
+
+            if in_ansii:
+                new_rn[-1][-1] += char
+            else:
+                new_rn[-1].append((cur_color, char))
+
+            if char == "m" and in_ansii:
+                in_ansii = False
+                cur_color = new_rn[-1].pop(-1)
+
+    rn = {}
+
+    for y, line in enumerate(new_rn):
+        for x, char in enumerate(line):
+            rn[x, y] = char
+
+    heads = [k for k, v in rn.items() if v[1] == '▀']
+
+    for head in heads:
+        x, y = head
+
+        run = y > 0 and rn[x, y - 1][1] in ['│', '─']
+
+        while run:
+            if y > 0 and rn[x, y - 1][1] == '─':
+                y -= 1
+                continue
+
+            head = x, y - 1
+            rn[head] = rn[head][0], "|"
+            y -= 1
+
+            if y > 0 and rn[x, y - 1][1] == '─':
+                y -= 1
+                continue
+
+            if not (y > 0 and rn[x, y - 1][1] == '│'):
+                run = False
+
+    new_rn = [[rn.get((_, __), ('\033[0m', ' ')) for _ in range(max(x for x, y in rn.keys()) + 1)] for __ in range(max(y for x, y in rn.keys()) + 1)]
+
+    return '\n'.join(''.join(_ + char for _, char in line) for line in new_rn)
+
+
 def colored_args(args, instruction):
     new_args = []
 
@@ -426,6 +484,7 @@ def main(watching):
                         swaps.append(ret)
 
                     swaps = render(swaps, padding + 1)
+                    swaps = post_render(swaps)
                 except Exception as e:
                     swaps = f"Unable to compute line graph\nError: {e}"
 
