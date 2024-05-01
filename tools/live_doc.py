@@ -406,51 +406,60 @@ def main(watching):
 
                 output = "\n".join([f"{_}{' ' * (70 - ansii_length(_))} ║ " for _ in output.split("\n")])
 
-                swaps = []
-
-                padding = 0
-
-                for line in lines:
-                    line = line.strip()
-
-                    if ':' in line:
-                        padding += 2
-                        continue
-
-                    if not line:
-                        padding += 2
-                        continue
-
-                    inst, *args = line.split("#")[0].split(" ")
-                    args = list(filter(lambda x: x and x[0] != '-', args))
-
-                    if inst not in standard_instructions.instructions:
-                        padding += 2
-                        continue
-
-                    if '__rtl__' not in standard_instructions.instructions[inst].__dict__:
-                        padding += 2
-                        continue
-
-                    if standard_instructions.instructions[inst].__rtl__.count("\n") != 0:
-                        padding += standard_instructions.instructions[inst].__rtl__.count("\n") + 2
-                        continue
-
-                    if "!!" in args:
-                        args.remove("!!")
-                        padding += 1
-
-                    ret = to_swap(padding, inst, args)
+                try:
+                    swaps = []
 
                     padding = 0
 
-                    if type(ret) == int:
-                        padding = ret
-                        continue
+                    for line in lines:
+                        line = line.strip()
 
-                    swaps.append(ret)
+                        if ':' in line:
+                            padding += 2
+                            continue
 
-                swaps = render(swaps, padding)
+                        if not line:
+                            padding += 2
+                            continue
+
+                        inst, *args = line.split("#")[0].split(" ")
+                        args = list(filter(lambda x: x and x[0] != '-', args))
+
+                        if inst not in standard_instructions.instructions:
+                            padding += 2
+                            continue
+
+                        if '__rtl__' not in standard_instructions.instructions[inst].__dict__:
+                            padding += 2
+                            continue
+
+                        if standard_instructions.instructions[inst].__rtl__.count("\n") != 0:
+                            padding += standard_instructions.instructions[inst].__rtl__.count("\n") + 2
+                            continue
+
+                        if "!!" in args:
+                            args.remove("!!")
+                            padding += 1
+
+                        ret = to_swap(padding, inst, args)
+
+                        if type(ret) == int:
+                            padding += ret
+                            continue
+
+                        else:
+                            padding = 0
+
+                        swaps.append(ret)
+
+                    swaps = render(swaps, padding)
+                except Exception as e:
+                    swaps = f"Unable to compute line graph\nError: {e}"
+
+                if output.count("\n") > swaps.count("\n"):
+                    swaps += "\n" * (output.count("\n") - swaps.count("\n"))
+                else:
+                    output += "\n" * (swaps.count("\n") - output.count("\n"))
 
                 print('\n'.join(map(lambda x: '\033[0m  '.join(x) + '\033[0m', zip(output.split("\n"), swaps.split("\n")))))
 
