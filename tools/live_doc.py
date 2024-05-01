@@ -12,7 +12,6 @@ REGISTER = 4
 VALUE = 8
 UNCHECKED = 16
 
-
 overwrite_right = ("@c▀   \n"
                    "@n┌───")
 
@@ -54,7 +53,7 @@ def render_template(
     template = template.replace("@c", color)
     template = template.replace("@n", new)
     template = template.replace("@g", generated)
-    template = template.replace("@s", f"\033[0m{symbol}")
+    template = template.replace("@s", f"{generated}{symbol}")
 
     return template.split("\n")
 
@@ -63,17 +62,18 @@ def render(swaps, padding):
     output = ""
 
     colors = {
+        "PC": "\033[34m",
         "RA": "\033[31m",
         "RB": "\033[32m",
         "RC": "\033[33m",
-        "RD": "\033[34m",
+        "RD": "\033[36m",
         "MEM": "\033[35m",
     }
 
     lcv = list(colors.keys())
 
     unused_colors = [
-        "\033[36m",
+        "\033[37m",
     ]
 
     all_colors = list(colors.values()) + unused_colors
@@ -84,107 +84,30 @@ def render(swaps, padding):
     for frm, to, gen, sym, ext, extra in swaps:
         ren = []
 
-        # RA
-        if frm == "RA":
-            ren.append(render_template(split_right, colors["RA"], colors["RA"]))
+        for sel in list(colors.keys())[:-1]:
+            left_ = split_left if gen else overwrite_left
+            right_ = split_right if gen else overwrite_right
+            color_ = colors[sel]
+            new_ = colors[frm]
+            generated_ = unused_colors[0] if gen else new_
 
-        elif to == "RA":
-            ren.append(render_template(
-                split_right if gen else overwrite_right,
-                colors["RA"],
-                colors[frm],
-                unused_colors[0] if gen else colors[frm],
-                sym
-            ))
+            if frm == sel:
+                if lcv.index(to) < lcv.index(sel):
+                    ren.append(render_template(split_left, color_, color_))
+                else:
+                    ren.append(render_template(split_right, color_, color_))
 
-        else:
-            ren.append(render_template(standard, colors["RA"]))
+            elif to == sel:
+                if lcv.index(frm) < lcv.index(sel):
+                    ren.append(render_template(left_, color_, new_, generated_, sym))
+                else:
+                    ren.append(render_template(right_, color_, new_, generated_, sym))
 
-        # RB
-        if frm == "RB":
-            if to in ["RA"]:
-                ren.append(render_template(split_left, colors["RB"], colors["RB"]))
-            else:
-                ren.append(render_template(split_right, colors["RB"], colors["RB"]))
+            elif lcv.index(to) < lcv.index(sel) < lcv.index(frm) or lcv.index(to) > lcv.index(sel) > lcv.index(frm):
+                ren.append(render_template(passthrough, color_, new_))
 
-        elif to == "RB":
-            if frm in ["RA"]:
-                ren.append(render_template(
-                    split_left if gen else overwrite_left,
-                    colors["RB"],
-                    colors[frm],
-                    unused_colors[0] if gen else colors[frm],
-                    sym
-                ))
             else:
-                ren.append(render_template(
-                    split_right if gen else overwrite_right,
-                    colors["RB"],
-                    colors[frm],
-                    unused_colors[0] if gen else colors[frm],
-                    sym
-                ))
-        elif lcv.index(to) < lcv.index("RB") < lcv.index(frm) or lcv.index(to) > lcv.index("RB") > lcv.index(frm):
-            ren.append(render_template(passthrough, colors["RB"], colors[frm]))
-        else:
-            ren.append(render_template(standard, colors["RB"]))
-
-        # RC
-        if frm == "RC":
-            if to in ["RA", "RB"]:
-                ren.append(render_template(split_left, colors["RC"], colors["RC"]))
-            else:
-                ren.append(render_template(split_right, colors["RC"], colors["RC"]))
-        elif to == "RC":
-            if frm in ["RA", "RB"]:
-                ren.append(render_template(
-                    split_left if gen else overwrite_left,
-                    colors["RC"],
-                    colors[frm],
-                    unused_colors[0] if gen else colors[frm],
-                    sym
-                ))
-            else:
-                ren.append(render_template(
-                    split_right if gen else overwrite_right,
-                    colors["RC"],
-                    colors[frm],
-                    unused_colors[0] if gen else colors[frm],
-                    sym
-                ))
-        elif lcv.index(to) < lcv.index("RC") < lcv.index(frm) or lcv.index(to) > lcv.index("RC") > lcv.index(frm):
-            ren.append(render_template(passthrough, colors["RC"], colors[frm]))
-        else:
-            ren.append(render_template(standard, colors["RC"]))
-
-        # RD
-        if frm == "RD":
-            # ren.append(render_template(split_left, colors["RD"], colors["RD"]))
-            if to in ["RA", "RB", "RC"]:
-                ren.append(render_template(split_left, colors["RD"], colors["RD"]))
-            else:
-                ren.append(render_template(split_right, colors["RD"], colors["RD"]))
-        elif to == "RD":
-            if frm in ["RA", "RB", "RC"]:
-                ren.append(render_template(
-                    split_left if gen else overwrite_left,
-                    colors["RD"],
-                    colors[frm],
-                    unused_colors[0] if gen else colors[frm],
-                    sym
-                ))
-            else:
-                ren.append(render_template(
-                    split_right if gen else overwrite_right,
-                    colors["RD"],
-                    colors[frm],
-                    unused_colors[0] if gen else colors[frm],
-                    sym
-                ))
-        elif lcv.index(to) < lcv.index("RD") < lcv.index(frm) or lcv.index(to) > lcv.index("RD") > lcv.index(frm):
-            ren.append(render_template(passthrough, colors["RD"], colors[frm]))
-        else:
-            ren.append(render_template(standard, colors["RD"]))
+                ren.append(render_template(standard, color_))
 
         for _ in range(extra):
             output += "   ".join([f"{v}│\033[0m" for k, v in colors.items() if k != "MEM"]) + "\n"
@@ -193,16 +116,18 @@ def render(swaps, padding):
             colors[to] = unused_colors.pop(0)
 
         else:
-            colors[to] = colors[frm]
+            colors[to] = new_
 
         unused_colors = list(set(all_colors) - set(colors.values()))
 
-        if frm == "MEM":
-            colors["MEM"] = unused_colors.pop(0)
+        colors["MEM"] = unused_colors[0]
 
         unused_colors = list(set(all_colors) - set(colors.values()))
 
         output += '\n'.join(map(lambda x: ''.join(x), zip(*ren))) + ext + '\033[0m\n'
+        # output += ("  ".join([f"{v}{k}\033[0m" for k, v in colors.items()]) +
+        #            "   " +
+        #            " ".join([f"{v}#\033[0m" for v in unused_colors]) + "\n")
 
     for _ in range(padding):
         output += "   ".join([f"{v}│\033[0m" for k, v in colors.items() if k != "MEM"]) + "\n"
@@ -266,11 +191,36 @@ def ansii_length(string):
     return count
 
 
-def to_swap(padding, instruction, args):
-    rtl = standard_instructions.instructions[instruction].__rtl__
+def to_swap(padding, instruction, args, *, rtl=None):
+    if rtl is None:
+        rtl = standard_instructions.instructions[instruction].__rtl__
 
     for _ in range(len(args)):
         rtl = rtl.replace(f"{{{_}}}", args[_])
+
+    if rtl.count("\n") > 0:
+        rtls = rtl.split("\n")
+        outs = []
+        push = -1
+
+        for _ in rtls:
+            print(_)
+            if "<-" not in _:
+                push += 1
+                continue
+
+            _ = to_swap(padding, instruction, args, rtl=_.strip())
+
+            if type(_) == int:
+                push += _
+                continue
+
+            outs.append(_)
+            push += 1
+
+        return outs[0][0], outs[0][1], outs[0][2], outs[0][3], ', '.join(_[4] if _[3] == " " else f'\'{_[4]} ({_[3]})\'' for _ in outs), push
+
+        # return out[0], out[1], out[2], out[3], out[4], push
 
     left, right = rtl.split(" <- ")
     sym = ""
@@ -315,13 +265,13 @@ def to_swap(padding, instruction, args):
         mem = right
         right = "MEM"
 
-    if left not in ["RA", "RB", "RC", "RD", "MEM"]:
+    if left not in ["PC", "RA", "RB", "RC", "RD", "MEM"]:
         return rtl.count("\n") + 1
 
-    if right not in ["RA", "RB", "RC", "RD", "MEM"] and mem:
+    if right not in ["PC", "RA", "RB", "RC", "RD", "MEM"] and mem:
         return rtl.count("\n") + 1
 
-    if right not in ["RA", "RB", "RC", "RD", "MEM"]:
+    if right not in ["PC", "RA", "RB", "RC", "RD", "MEM"]:
         mem = right
         right = "MEM"
 
@@ -332,6 +282,7 @@ def to_swap(padding, instruction, args):
         mem = f"> {mem}"
 
     return (right, left, bool(sym), sym.rjust(1, ' '), mem, padding)
+
 
 def main(watching):
     old = [
@@ -455,9 +406,9 @@ def main(watching):
                             padding += 2
                             continue
 
-                        if standard_instructions.instructions[inst].__rtl__.count("\n") != 0:
-                            padding += standard_instructions.instructions[inst].__rtl__.count("\n") + 2
-                            continue
+                        # if standard_instructions.instructions[inst].__rtl__.count("\n") != 0:
+                        #     padding += standard_instructions.instructions[inst].__rtl__.count("\n") + 2
+                        #     continue
 
                         if "!!" in args:
                             args.remove("!!")
@@ -474,7 +425,7 @@ def main(watching):
 
                         swaps.append(ret)
 
-                    swaps = render(swaps, padding)
+                    swaps = render(swaps, padding + 1)
                 except Exception as e:
                     swaps = f"Unable to compute line graph\nError: {e}"
 

@@ -45,7 +45,7 @@ start:
     move RB var.word
     loadr -loop RA RB
     add RA 0  # sets the zero flag if zero
-    jumpz copyimg !!
+    jumpz copyimg
     add RB 1
     store $portA$
     jump word.loop
@@ -67,7 +67,7 @@ start:
     subr RC RA
     load var.loop
     subr RC RA
-    jumpz exit
+    jumpz exit !!
 
         loadr RA RB
         mover RC RA
