@@ -253,8 +253,20 @@ def to_swap(padding, instruction, args, *, rtl=None):
     if rtl is None:
         rtl = standard_instructions.instructions[instruction].__rtl__
 
-    for _ in range(len(args)):
-        rtl = rtl.replace(f"{{{_}}}", args[_])
+    for _i, arg in enumerate(args):
+        a = str(args[_i])
+
+        print(a, ansii_length(a))
+
+        if ansii_length(a) > 8:
+            _ = a.endswith("\033[0m")
+
+            a = a[:-(ansii_length(a) - 5)] + "..."
+
+            if _:
+                a += "\033[0m"
+
+        rtl = rtl.replace(f"{{{_i}}}", a)
 
     if rtl.count("\n") > 0:
         rtls = rtl.split("\n")
@@ -409,7 +421,19 @@ def main(watching):
                     args = colored_args(args, p_inst)
 
                     for _i, arg in enumerate(args):
-                        rtl = rtl.replace(f"{{{_i}}}", arg[0])
+                        a = str(arg[0])
+
+                        print(a, ansii_length(a))
+
+                        if ansii_length(a) > 8:
+                            _ = a.endswith("\033[0m")
+
+                            a = a[:-(ansii_length(a) - 5)] + "..."
+
+                            if _:
+                                a += "\033[0m"
+
+                        rtl = rtl.replace(f"{{{_i}}}", a)
 
                     rtl = rtl.split("\n")
 
