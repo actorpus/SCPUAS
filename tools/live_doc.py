@@ -256,7 +256,7 @@ def to_swap(padding, instruction, args, *, rtl=None):
     for _i, arg in enumerate(args):
         a = str(args[_i])
 
-        print(a, ansii_length(a))
+        # print(a, ansii_length(a))
 
         if ansii_length(a) > 8:
             _ = a.endswith("\033[0m")
@@ -274,7 +274,7 @@ def to_swap(padding, instruction, args, *, rtl=None):
         push = -1
 
         for _ in rtls:
-            print(_)
+            # print(_)
             if "<-" not in _:
                 push += 1
                 continue
@@ -423,7 +423,7 @@ def main(watching):
                     for _i, arg in enumerate(args):
                         a = str(arg[0])
 
-                        print(a, ansii_length(a))
+                        # print(a, ansii_length(a))
 
                         if ansii_length(a) > 8:
                             _ = a.endswith("\033[0m")
