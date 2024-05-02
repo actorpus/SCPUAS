@@ -38,14 +38,18 @@ class CPU(threading.Thread):
 
         def __getitem__(self, key):
             if key == self.__root.debug_port:
-                print(f"Attempted to read from {self.__root.debug_port:x}, enabling debug mode")
+                print(
+                    f"Attempted to read from {self.__root.debug_port:x}, enabling debug mode"
+                )
                 self.__root.debug = True
 
             return self.__memory[key]
 
         def __setitem__(self, key, value):
             if key == self.__root.debug_port:
-                print(f"Attempted to write to {self.__root.debug_port:x}, enabling debug mode")
+                print(
+                    f"Attempted to write to {self.__root.debug_port:x}, enabling debug mode"
+                )
                 self.__root.debug = True
 
             if self.mem_change_hook:
@@ -992,7 +996,7 @@ if __name__ == "__main__":
         r"loadimg .\examples\image.ppm 1024",
         r"watchimg 1024 24 24",
         r"watchimg 2048 24 24",
-        r"setdebugtrigger 0xffe"
+        r"setdebugtrigger 0xffe",
     ]:
         rc.run_command_ext(_)
 

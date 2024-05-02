@@ -146,9 +146,8 @@ class Instruction(type):
 
             rtl = "Unknown"
 
-            if '__rtl__' in _class.__dict__:
+            if "__rtl__" in _class.__dict__:
                 rtl = _class.__rtl__
-
 
             if name.startswith("_"):
                 name = "." + name[1:]

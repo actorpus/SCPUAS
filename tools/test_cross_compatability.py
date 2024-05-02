@@ -1,10 +1,18 @@
-import sys
-assert sys.path[1].split("\\")[-1] == "SCPUAS", "Please run this script in the SCPUAS directory"
 import os
+assert os.getcwd().split("\\")[-1] == "SCPUAS", "Please run this script in the SCPUAS directory"
+import sys
+
 
 SCP = r".\examples\emulator_test.scp"
 
 os.system("mkdir tmp")
+files = os.listdir("tmp")
+
+for file in files:
+    os.remove(f"tmp\\{file}")
+    print(f"Removed {file}")
+
+
 os.system(rf".venv\Scripts\python.exe assembler.py -i {SCP} -D tmp\tmp -V -P tmp\debug -o tmp\compiler_test")
 print("decompiled into asm")
 print("generated compiled versions (from scp)")
