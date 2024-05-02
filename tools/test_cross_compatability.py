@@ -15,10 +15,10 @@ print("generated assembled versions (from decompiled asm)")
 
 
 for file in [
-    "tmp\&_test.asc",
-    "tmp\&_test.dat",
-    "tmp\&_test.mem",
-    "tmp\&_test.mif",
+    r"tmp\&_test.asc",
+    r"tmp\&_test.dat",
+    r"tmp\&_test.mem",
+    r"tmp\&_test.mif",
 ]:
     print(f"Checking {file.replace('&', 'compiler')} and {file.replace('&', 'assembler')}")
 

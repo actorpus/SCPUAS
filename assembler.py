@@ -1108,8 +1108,9 @@ def parse_dynamic_token(
     return token
 
 
-
 _parse_argument_log = logging.getLogger("ArgumentParser")
+
+
 def parse_argument(argument, flags, roots):
     # the required flag is already dealt with
     if flags & UNCHECKED:
@@ -1119,7 +1120,7 @@ def parse_argument(argument, flags, roots):
 
     _parse_argument_log.debug(roots)
 
-    if ref and str(argument).replace("~", '') in roots:
+    if ref and str(argument).replace("~", "") in roots:
         _parse_argument_log.debug(f"Found reference '{argument}' in roots.")
         return argument
 
@@ -1127,13 +1128,18 @@ def parse_argument(argument, flags, roots):
         try:
             return RegisterRef(argument)
         except SystemExit:
-            _parse_argument_log.warning("Failed to parse register reference, falling back to value if available.")
+            _parse_argument_log.warning(
+                "Failed to parse register reference, falling back to value if available."
+            )
 
     if val:
         return parse_dynamic_token(argument)
 
-    _parse_argument_log.critical(f"Unknown argument type '{flags}' for argument {argument}. Exiting.")
+    _parse_argument_log.critical(
+        f"Unknown argument type '{flags}' for argument {argument}. Exiting."
+    )
     raise SystemExit
+
 
 def rooted_instructions_argument_parser(
     roots: RootedInstructionsStruct,
@@ -1173,7 +1179,9 @@ def rooted_instructions_argument_parser(
 
                     dynam = parse_dynamic_token(arguments[i])
 
-                    arguments[i] = parse_argument(dynam, instruction_flags, pressed_roots)
+                    arguments[i] = parse_argument(
+                        dynam, instruction_flags, pressed_roots
+                    )
 
     return roots
 
@@ -1251,7 +1259,9 @@ def rooted_instructions_compiler(
             args = instruction["arguments"]
 
             for i in range(len(args)):
-                _log.debug(f"Checking argument {i} ({args[i]}) of instruction '{root}: {instruction['name']}'.")
+                _log.debug(
+                    f"Checking argument {i} ({args[i]}) of instruction '{root}: {instruction['name']}'."
+                )
 
                 if isinstance(args[i], RegisterRef):
                     args[i] = args[i].value
@@ -1319,9 +1329,7 @@ def assemble_asc(stream: list[str], memory_offset: int) -> str:
 
     # print(stream)
     for i in range(0, len(stream), 16):
-        out.append(
-            f"{memory_offset + i:04x} " + " ".join(stream[i : i + 16]) + " "
-        )
+        out.append(f"{memory_offset + i:04x} " + " ".join(stream[i : i + 16]) + " ")
 
     return "\n".join(out)
 
@@ -1337,6 +1345,7 @@ def oasc(code_: str) -> list[str]:
         code.extend(line.split(" ")[1:-1])
 
     return code
+
 
 # def generate_high_asc(assembled: str) -> str:
 #     asc = assembled.split(" ")[1:]
@@ -1399,6 +1408,26 @@ BEGIN
     return output
 
 
+def generate_old_compatible_name(name, attempt=0):
+    name = name.split(".")
+
+    for i, partial in enumerate(name):
+        if "~" not in partial:
+            name[i] = name[i].lower().capitalize()
+            continue
+
+        _ = partial.index("~")
+        partial, count = partial[:_], len(partial[_ + 1 :])
+        name[i] = f"{partial.lower().capitalize()}Sub{count}"
+
+    name = "Of".join(reversed(name))
+
+    if attempt:
+        name += f"T{attempt}"
+
+    return name
+
+
 def generate_dec(
     roots: RootedInstructionsStruct,
     imports: set[pathlib.Path],
@@ -1446,7 +1475,7 @@ def generate_dec(
         "orr": "or",
         "xorr": "xor",
         "alsr": "als",
-        "jump": "jumpu"
+        "jump": "jumpu",
     }
     implicit_instructions = [
         "load",
@@ -1475,10 +1504,25 @@ def generate_dec(
             ord(_.upper()) in range(65, 91) or ord(_) in range(48, 58)
             for _ in real_name
         ):
-            while (
-                gen := f"UnsupportedRoot{random.randbytes(16).hex().upper()}"
-            ) in root_mappings:
+            i = 0
+            while (gen := generate_old_compatible_name(real_name, i)) in root_mappings:
                 _log.debug(f"Generated duplicate root name {gen}. Regenerating.")
+                i += 1
+
+                if i > 100:
+                    _log.critical(
+                        "Failed to generate unique root name. Failing back to old format."
+                    )
+
+                    while (
+                        gen := f"UnsupportedRoot{random.randbytes(16).hex().upper()}"
+                    ) in root_mappings:
+                        _log.debug(
+                            f"Generated duplicate root name {gen}. Regenerating."
+                        )
+
+                    break
+
             root_mappings[root] = gen
             continue
         root_mappings[root] = root
@@ -1539,7 +1583,6 @@ def generate_dec(
             continue
 
         pressed_root_mappings[root.replace("~", "")] = root_mappings[root]
-
 
     _log.debug(pprint.pformat(root_mappings))
     _log.debug(pprint.pformat(pressed_root_mappings))
