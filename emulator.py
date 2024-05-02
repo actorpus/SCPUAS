@@ -17,6 +17,7 @@ Local line editing: Force off
 (save config)
 """
 
+import json
 import os
 import pathlib
 import socket
@@ -24,9 +25,10 @@ import sys
 import threading
 import time
 import traceback
-import pygame
 
 import numpy as np
+import pygame
+from pygame.font import SysFont
 
 
 class CPU(threading.Thread):
@@ -978,10 +980,28 @@ class RemoteControl(threading.Thread):
 
                     self._lines.append(f"\033[31mError\033[0m {e}")
 
-        print(f"[RC] Stopped")
+        print("[RC] Stopped")
 
 
 if __name__ == "__main__":
+    # Ensure that the user passes in a file first, before starting anything else
+    if not sys.argv[1:]:
+        print("Usage: python emulator.py <json file>")
+        raise SystemExit
+
+    # Parse file to make sure that the user does not connect, for there to be an error
+    command_file = pathlib.Path(sys.argv[1])
+
+    with open(command_file, encoding="utf-8") as file:
+        data = file.read()
+        json_data = json.loads(data)
+        if "defaults" in json_data:
+            commands = json_data["defaults"]
+        else:
+            print("JSON file needs a 'default' key with the instuctions there")
+            raise SystemExit
+
+    # Start everything else
     cpu = CPU()
     screen = PygameScreen(cpu)
 
@@ -989,25 +1009,9 @@ if __name__ == "__main__":
     rc = RemoteControl(cpu, screen)
     # starts itself
 
-    for _ in [
-        r"ss 80 50",  # can be changed in putty settings
-
-        r"loadscp .\examq1.scp",
-
-        # Export image to memory
-        r"watch 0xFFF",
-        r"setdebugtrigger 0xFFF",
-
-        # input
-        r"loadimg .\examples\image.ppm 1024",
-        r"watchimg 0x400 24 24",
-
-        # output
-        r"watchimg 0x640 24 24",
-
-        r"watchimg 0 64 64"
-    ]:
-        rc.run_command_ext(_)
+    # Executes commands from the .json file
+    for command in commands:
+        rc.run_command_ext(command)
 
     cpu.start()
     screen.run()
