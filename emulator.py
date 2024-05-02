@@ -698,7 +698,7 @@ class RemoteControl(threading.Thread):
             with open(img_path, "r") as f:
                 code = f.read()
 
-            type_id, size, *code = [
+            type_id, size, max, *code = [
                 *[
                     _.split(" ")
                     for _ in code.strip().split("\n")
@@ -706,20 +706,24 @@ class RemoteControl(threading.Thread):
                 ]
             ]
             # also not an error ignore ide
-            type_id = type_id[0]
+            type_id, max = type_id[0], max[0]
             size = size[:2]
 
             if type_id != "P3":
                 self._lines.append(f"Invalid image type: {type_id}")
                 return
 
+            if max != "255":
+                self._lines.append(f"Invalid max value: {max}")
+                return
+
             og_size = size
             size = int(size[0]) * int(size[1])
 
             for _ in range(size):
-                b = int(code.pop(0)[0])
                 r = int(code.pop(0)[0])
                 g = int(code.pop(0)[0])
+                b = int(code.pop(0)[0])
 
                 value = (r >> 3) << 11 | (g >> 2) << 5 | (b >> 3)
 

@@ -258,13 +258,13 @@ def to_swap(padding, instruction, args, *, rtl=None):
 
         # print(a, ansii_length(a))
 
-        if ansii_length(a) > 8:
-            _ = a.endswith("\033[0m")
-
-            a = a[:-(ansii_length(a) - 5)] + "..."
-
-            if _:
-                a += "\033[0m"
+        # if ansii_length(a) > 8:
+        #     _ = a.endswith("\033[0m")
+        #
+        #     a = a[:-(ansii_length(a) - 5)] + "..."
+        #
+        #     if _:
+        #         a += "\033[0m"
 
         rtl = rtl.replace(f"{{{_i}}}", a)
 
@@ -396,7 +396,7 @@ def main(watching):
 
                 print(f"{instruction.__doc__}")
 
-                lines = lines[line_i - 4:line_i + 5]
+                lines = lines[line_i - 9:line_i + 10]
                 output = "\n\n\n"
 
                 for i, part_line in enumerate(lines):
@@ -428,7 +428,7 @@ def main(watching):
                         if ansii_length(a) > 8:
                             _ = a.endswith("\033[0m")
 
-                            a = a[:-(ansii_length(a) - 5)] + "..."
+                            a = a[:-(ansii_length(a) - 4)] + "..."
 
                             if _:
                                 a += "\033[0m"
