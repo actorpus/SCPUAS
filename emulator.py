@@ -773,7 +773,7 @@ class RemoteControl(threading.Thread):
             code = []
 
             for line in code_:
-                code.extend(line.split(" ")[1:])
+                code.extend(line.strip().split(" ")[1:])
 
             # print(code)
 
@@ -990,13 +990,22 @@ if __name__ == "__main__":
     # starts itself
 
     for _ in [
-        # r"ss 80 50",  # can be changed in putty settings
-        r"loadscp .\examples\emulator_test.scp",
+        r"ss 80 50",  # can be changed in putty settings
+
+        r"loadscp .\examq1.scp",
+
+        # Export image to memory
         r"watch 0xFFF",
+        r"setdebugtrigger 0xFFF",
+
+        # input
         r"loadimg .\examples\image.ppm 1024",
-        r"watchimg 1024 24 24",
-        r"watchimg 2048 24 24",
-        r"setdebugtrigger 0xffe",
+        r"watchimg 0x400 24 24",
+
+        # output
+        r"watchimg 0x640 24 24",
+
+        r"watchimg 0 64 64"
     ]:
         rc.run_command_ext(_)
 
