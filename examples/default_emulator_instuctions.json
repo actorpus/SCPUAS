@@ -1,6 +1,0 @@
-{
-    "defaults": [
-        "loadscp mine/lab_9.scp",
-        "loadimg examples/image.ppm 1024"
-    ]
-}
