@@ -1314,30 +1314,47 @@ def full_stack_load_compile(
 
 def assemble_asc(stream: list[str], memory_offset: int) -> str:
     # 'write start address to file'
-    output = [f"{memory_offset:04x}"] + stream
-    return " ".join(output)
+
+    out = []
+
+    # print(stream)
+    for i in range(0, len(stream), 16):
+        out.append(
+            f"{memory_offset + i:04x} " + " ".join(stream[i : i + 16]) + " "
+        )
+
+    return "\n".join(out)
 
 
 cast_hex_2_big = lambda x: f"{min(max(x, 0x00), 0xff):<02x}"
 cast_hex_2_small = lambda x: f"{min(max(x, 0x00), 0xff):>02x}"
 
 
-def generate_high_asc(assembled: str) -> str:
-    asc = assembled.split(" ")[1:]
+def oasc(code_: str) -> list[str]:
+    code = []
 
-    return assembled[:5] + " ".join([i[:2] for i in asc])
+    for line in code_.split("\n"):
+        code.extend(line.split(" ")[1:-1])
 
+    return code
 
-def generate_low_asc(assembled: str) -> str:
-    asc = assembled.split(" ")[1:]
-
-    return assembled[:5] + " ".join([i[2:] for i in asc])
+# def generate_high_asc(assembled: str) -> str:
+#     asc = assembled.split(" ")[1:]
+#
+#     return assembled[:5] + " ".join([i[:2] for i in asc])
+#
+#
+# def generate_low_asc(assembled: str) -> str:
+#     asc = assembled.split(" ")[1:]
+#
+#     return assembled[:5] + " ".join([i[2:] for i in asc])
 
 
 def generate_dat(assembled: str, memory_offset: int) -> str:
     output = ""
+    l_ = oasc(assembled)
 
-    for i, inst in enumerate(assembled.split(" ")[1:]):
+    for i, inst in enumerate(l_):
         output += (
             f"{i + memory_offset:04} {int(inst[:2], 16):08b}{int(inst[2:], 16):08b}\n"
         )
@@ -1347,8 +1364,9 @@ def generate_dat(assembled: str, memory_offset: int) -> str:
 
 def generate_mem(assembled: str, memory_offset: int) -> str:
     output = ""
+    l_ = oasc(assembled)
 
-    for i, inst in enumerate(assembled.split(" ")[1:]):
+    for i, inst in enumerate(l_):
         normal = cast_hex_2_small(int(inst[:2], 16)) + cast_hex_2_small(
             int(inst[2:], 16)
         )
@@ -1370,7 +1388,7 @@ BEGIN
 
     cheat = generate_dat(assembled, memory_offset).split("\n")
     cheat = [
-        f"{int(a):>04x}" + " : " + b + ";"
+        f"{int(a):>04x}".upper() + " : " + b + ";"
         for a, b in [i.split(" ") for i in cheat if i]
     ]
     output += "\n"
@@ -1428,10 +1446,14 @@ def generate_dec(
         "orr": "or",
         "xorr": "xor",
         "alsr": "als",
-        "addm": "add",
-        "subm": "sub",
         "jump": "jumpu"
     }
+    implicit_instructions = [
+        "load",
+        "store",
+        "addm",
+        "subm",
+    ]
 
     rendered_imports = []
 
@@ -1470,13 +1492,17 @@ def generate_dec(
         k = k.replace("~", "")
 
         if k not in root_mappings:
+            _log.debug(f"Found unpressed root '{k}' in root mappings.")
+
             pressed_root_mappings[k] = v
             continue
 
         # This could cause bugs later but 99% you would never not want to jump to the first instance
         _log.debug(f"Found pressed root '{k}' in root mappings.")
 
-    _log.debug(roots)
+    _log.debug(pprint.pformat(pressed_root_mappings))
+    _log.debug(pprint.pformat(root_mappings))
+    _log.debug(pprint.pformat(roots))
 
     iroot = iter(roots.keys())
 
@@ -1501,12 +1527,16 @@ def generate_dec(
 
         _log.debug(f"{dead=} {root=}")
 
-
         for d in dead:
             d = d.replace("~", "")
 
             if d not in pressed_root_mappings:
                 pressed_root_mappings[d] = root_mappings[root]
+
+        # same with the 99% thing
+        if root.replace("~", "") in pressed_root_mappings:
+            _log.debug(f"Root {root} is pressed, moving to next root")
+            continue
 
         pressed_root_mappings[root.replace("~", "")] = root_mappings[root]
 
@@ -1528,6 +1558,9 @@ def generate_dec(
                     output += f"    {instruction_aliases[instruction['name']]} "
                 else:
                     output += f"    {instruction['name']} "
+
+                if instruction["name"] in implicit_instructions:
+                    output += f"RA "
 
                 args = []
 
@@ -1696,29 +1729,29 @@ def generate_cli(
 
         _log.info(f"Generated .asc file at {path}")
 
-        gen_high_asc = generate_high_asc(assembled)
-        path = pathlib.Path(asc + "_high_byte.asc").resolve()
-
-        try:
-            with open(path, "w") as f:
-                f.write(gen_high_asc)
-        except FileNotFoundError:
-            _log.critical(f"Could not write to {path}. Exiting.")
-            raise SystemExit
-
-        _log.info(f"Generated .asc file at {path}")
-
-        gen_low_asc = generate_low_asc(assembled)
-        path = pathlib.Path(asc + "_low_byte.asc").resolve()
-
-        try:
-            with open(path, "w") as f:
-                f.write(gen_low_asc)
-        except FileNotFoundError:
-            _log.critical(f"Could not write to {path}. Exiting.")
-            raise SystemExit
-
-        _log.info(f"Generated .asc file at {path}")
+        # gen_high_asc = generate_high_asc(assembled)
+        # path = pathlib.Path(asc + "_high_byte.asc").resolve()
+        #
+        # try:
+        #     with open(path, "w") as f:
+        #         f.write(gen_high_asc)
+        # except FileNotFoundError:
+        #     _log.critical(f"Could not write to {path}. Exiting.")
+        #     raise SystemExit
+        #
+        # _log.info(f"Generated .asc file at {path}")
+        #
+        # gen_low_asc = generate_low_asc(assembled)
+        # path = pathlib.Path(asc + "_low_byte.asc").resolve()
+        #
+        # try:
+        #     with open(path, "w") as f:
+        #         f.write(gen_low_asc)
+        # except FileNotFoundError:
+        #     _log.critical(f"Could not write to {path}. Exiting.")
+        #     raise SystemExit
+        #
+        # _log.info(f"Generated .asc file at {path}")
 
     if dat is not None:
         gen_dat = generate_dat(assembled, address_offset)

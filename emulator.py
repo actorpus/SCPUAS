@@ -756,13 +756,24 @@ class RemoteControl(threading.Thread):
             os.system(
                 rf"{python_executable_path} assembler.py -i {scp_path} -P debug -a tmp -V"
             )
-            os.remove(r"tmp_high_byte.asc")
-            os.remove(r"tmp_low_byte.asc")
+            # os.remove(r"tmp_high_byte.asc")
+            # os.remove(r"tmp_low_byte.asc")
 
             with open(r"tmp.asc", "r") as f:
-                code = f.read().strip().split(" ")
+                code_ = f.read().strip().split("\n")
 
-            memory_start, *code = code
+            # print(code_)
+
+            memory_start = code_[0].split(" ")[0]
+
+            code = []
+
+            for line in code_:
+                code.extend(line.split(" ")[1:])
+
+            # print(code)
+
+            # memory_start, *code = code
             memory_start = int(memory_start, 16)
             cpu.load_memory(memory_start, code)
 

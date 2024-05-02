@@ -67,7 +67,7 @@ start:
     subr RC RA
     load var.loop
     subr RC RA
-    jumpz exit !!
+    jumpz exit
 
         loadr RA RB
         mover RC RA
