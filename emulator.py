@@ -25,10 +25,8 @@ import sys
 import threading
 import time
 import traceback
-
 import numpy as np
 import pygame
-from pygame.font import SysFont
 
 
 class CPU(threading.Thread):
@@ -81,10 +79,23 @@ class CPU(threading.Thread):
         self._current_instruction_rel_func = None
         self._running_at = "~ KHz"
 
+        self._total_instructions = 0
+
         self.enabled = False
         self.running = True
         self.debug = False
         self.debug_port = -1
+
+        self.__rc = None
+
+    def bind(self, remote_control):
+        self.__rc = remote_control
+
+    def self_loop(self):
+        self.enabled = False
+
+        self.__rc._lines.append(f"\033[31mWarn\033[0m Processor entered self loop, disabling.")
+        self.__rc._lines.append(f"     Total instructions executed: {self._total_instructions}")
 
     def load_memory(self, at, memory):
         for i, c in enumerate(memory):
@@ -149,20 +160,20 @@ class CPU(threading.Thread):
 
     def _LOAD(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
         self._registers[0] = self._memory[value]
 
     def _STORE(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         self._memory[value] = self._registers[0]
 
     def _ADDM(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         value = self._memory[value]
@@ -180,7 +191,7 @@ class CPU(threading.Thread):
 
     def _SUBM(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         value = self._memory[value]
@@ -198,31 +209,43 @@ class CPU(threading.Thread):
 
     def _JUMPU(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
+
+        if self._pc - 1 == value:
+            self.self_loop()
 
         self._pc = value
 
     def _JUMPZ(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
+
+        if self._pc - 1 == value:
+            self.self_loop()
 
         if self.__flags_zero:
             self._pc = value
 
     def _JUMPNZ(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
+
+        if self._pc - 1 == value:
+            self.self_loop()
 
         if not self.__flags_zero:
             self._pc = value
 
     def _JUMPC(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
+
+        if self._pc - 1 == value:
+            self.self_loop()
 
         if self.__flags_carry:
             self._pc = value
@@ -232,7 +255,7 @@ class CPU(threading.Thread):
         self.__stack_pointer += 1
 
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         self._pc = value
@@ -272,7 +295,7 @@ class CPU(threading.Thread):
         self.__flags_overflow = self._registers[dest] & 0x8000
 
         self._registers[dest] = (self._registers[dest] << 1) | (
-            self._registers[src] >> 15
+                self._registers[src] >> 15
         )
 
         self.__flags_zero = self._registers[dest] == 0
@@ -287,7 +310,7 @@ class CPU(threading.Thread):
         self.__flags_overflow = self._registers[dest] & 0x0001
 
         self._registers[dest] = (self._registers[dest] >> 1) | (
-            self._registers[src] << 15
+                self._registers[src] << 15
         )
 
         self.__flags_zero = self._registers[dest] == 0
@@ -446,6 +469,8 @@ class CPU(threading.Thread):
             self._decode()
             self._execute()
 
+            self._total_instructions += 1
+
             if self.debug:
                 print(f"Registers: {self._registers}")
                 print(f"Stack: {self.__stack}")
@@ -475,7 +500,7 @@ class PygameScreen:
     def __init__(self, cpu_ref: CPU):
         pygame.font.init()
 
-        self._display = pygame.display.set_mode((800, 600))
+        self._display = pygame.display.set_mode((800, 600), pygame.RESIZABLE)
         self._clock = pygame.time.Clock()
         self._running = True
 
@@ -493,7 +518,7 @@ class PygameScreen:
         print(f"[PS] Stopped watching image at {address}")
 
     def load_image(
-        self, address, size: tuple[int, int], fsize: tuple[int, int]
+            self, address, size: tuple[int, int], fsize: tuple[int, int]
     ) -> pygame.surface:
         surf = pygame.Surface(size)
 
@@ -520,12 +545,20 @@ class PygameScreen:
             self._display.fill((0, 0, 0))
 
             for i, (address, size) in enumerate(self._watching):
-                self._display.blit(
-                    self.load_image(address, size, (128, 128)), (i * 128, 0)
+                # leave a 2x gap
+                pygame.draw.rect(
+                    self._display,
+                    (255, 255, 255),
+                    ((i * (128 + 8)) + 13, 13, 134, 134),
+                    1,
                 )
                 self._display.blit(
-                    self._font.render(f" 0x{address:03x}", True, (255, 255, 255)),
-                    (i * 128, 128),
+                    self.load_image(address, size, (128, 128)), ((i * (128 + 8)) + 16, 16)
+                )
+                sur = self._font.render(f"0x{address:03x}", True, (255, 255, 255))
+                self._display.blit(
+                    sur,
+                    ((i * (128 + 8)) + 16 + 64 - (sur.get_width() // 2), 128 + 20),
                 )
 
             pygame.display.flip()
@@ -619,12 +652,12 @@ class RemoteControl(threading.Thread):
     def render(self):
         # Clear screen, reset cursor, reset colors, underline
         out = (
-            "\033[2J\033[H\033[0m\033[4m Remote Control \033[0m"
-            + " " * (self._screen_size[0] - 16 - 4)
-            + "I003\r\n"
+                "\033[2J\033[H\033[0m\033[4m Remote Control \033[0m"
+                + " " * (self._screen_size[0] - 16 - 4)
+                + "I003\r\n"
         )
 
-        lines = self._lines[-(self._screen_size[1] - 3) :]
+        lines = self._lines[-(self._screen_size[1] - 3):]
 
         for line in lines:
             out += line + "\r\n"
@@ -634,10 +667,10 @@ class RemoteControl(threading.Thread):
         out += "\r\n:"
         out += self._cur_command
         out += " " * (
-            self._screen_size[0]
-            - len(self._cur_command)
-            - len(self._cpu._running_at)
-            - 1
+                self._screen_size[0]
+                - len(self._cur_command)
+                - len(self._cpu._running_at)
+                - 1
         )
         out += self._cpu._running_at
         # move cursor back to input
@@ -672,6 +705,12 @@ class RemoteControl(threading.Thread):
             x, y = self._cur_command[2:].strip().split(" ")
             self._lines.append(f"Screen size set to {x}x{y}")
             self._screen_size = (int(x), int(y))
+            self._last_command = self._cur_command
+            self._cur_command = ""
+            return
+
+        if self._cur_command == "gettotalinst":
+            self._lines.append(f"Total instructions executed: {self._cpu._total_instructions}")
             self._last_command = self._cur_command
             self._cur_command = ""
             return
@@ -941,6 +980,7 @@ class RemoteControl(threading.Thread):
             b"enabledebug - Enable debug mode\r\n"
             b"disabledebug - Disable debug mode\r\n"
             b"setdebugtrigger {X} - Set the debug trigger to X\r\n"
+            b"gettotalinst - Get the total number of instructions executed\r\n"
             b"\r\n"
             b"Press any key to continue\r\n"
         )
@@ -1016,6 +1056,8 @@ if __name__ == "__main__":
     # Executes commands from the .json file
     for command in commands:
         rc.run_command_ext(command)
+
+    cpu.bind(rc)
 
     cpu.start()
     screen.run()
