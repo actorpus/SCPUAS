@@ -26,6 +26,7 @@ import threading
 import time
 import traceback
 import numpy as np
+import shutil
 import pygame
 
 
@@ -793,43 +794,90 @@ class RemoteControl(threading.Thread):
             self._cur_command = ""
             return
 
-        if self._cur_command.startswith("loadscp"):
-            scp_path = self._cur_command[7:].strip()
-            scp_path = pathlib.Path(scp_path).resolve()
-            python_executable_path = pathlib.Path(sys.executable).resolve()
+        if self._cur_command.startswith("loadasc"):
+            asc_path = self._cur_command[7:].strip()
+            asc_path = pathlib.Path(asc_path).resolve()
 
-            if scp_path.exists() is False:
-                self._lines.append(f"File at {scp_path} does not exist")
+            if asc_path.exists() is False:
+                self._lines.append(f"File at {asc_path} does not exist")
                 return
 
-            os.system(
-                rf"{python_executable_path} assembler.py -i {scp_path} -P debug -a tmp -V"
-            )
-            # os.remove(r"tmp_high_byte.asc")
-            # os.remove(r"tmp_low_byte.asc")
+            with open(asc_path, "r") as f:
+                code = f.read().strip()
 
-            with open(r"tmp.asc", "r") as f:
-                code_ = f.read().strip().split("\n")
+            code = code.split("\n")
 
-            # print(code_)
+            memory_start = int(code[0].split(" ")[0], 16)
 
-            memory_start = code_[0].split(" ")[0]
+            for i, line in enumerate(code):
+                code[i] = line.strip().split(" ")[1:]
 
-            code = []
+            code = [item for sublist in code for item in sublist]
 
-            for line in code_:
-                code.extend(line.strip().split(" ")[1:])
+            self._cpu.load_memory(memory_start, code)
 
-            # print(code)
-
-            # memory_start, *code = code
-            memory_start = int(memory_start, 16)
-            cpu.load_memory(memory_start, code)
-
-            self._lines.append(f"Loaded SCP at {memory_start:03x}")
+            self._lines.append(f"Loaded ASC at {memory_start:03x}")
             self._last_command = self._cur_command
             self._cur_command = ""
             return
+
+        if self._cur_command.startswith("loadscp"):
+            asm_path = self._cur_command[7:].strip()
+            asm_path = pathlib.Path(asm_path).resolve()
+            python_executable_path = pathlib.Path(sys.executable).resolve()
+            output_path = pathlib.Path("tmp/output").resolve()
+
+            if asm_path.exists() is False:
+                self._lines.append(f"File at {asm_path} does not exist")
+                return
+
+            if not os.path.exists("tmp"):
+                os.mkdir("tmp")
+
+            if os.path.exists("tmp/output.asc"):
+                os.remove("tmp/output.asc")
+
+            os.system(
+                rf"{python_executable_path} assembler.py -i {asm_path} -P debug -a {output_path} -V"
+            )
+
+            # load the assembled code
+            self._cur_command = f"loadasc tmp/output.asc"
+            self._lines.append(f"        {self._cur_command}")
+            self.handle_command()
+
+            return
+
+        if self._cur_command.startswith("loadasm"):
+            asm_path = self._cur_command[7:].strip()
+            asm_path = pathlib.Path(asm_path).resolve()
+            python_executable_path = pathlib.Path(sys.executable).resolve()
+            output_path = pathlib.Path("tmp/output").resolve()
+
+            if asm_path.exists() is False:
+                self._lines.append(f"File at {asm_path} does not exist")
+                return
+
+            if not os.path.exists("tmp"):
+                os.mkdir("tmp")
+
+            if os.path.exists("tmp/output.asc"):
+                os.remove("tmp/output.asc")
+
+            os.system(
+                rf"{python_executable_path} bin\simpleCPUv1d_as.py -i {asm_path} -o {output_path}"
+            )
+
+            if not os.path.exists("tmp/output.asc"):
+                self._lines.append(f"Error while assembling")
+                return
+
+            # load the assembled code
+            self._cur_command = f"loadasc tmp/output.asc"
+            self._lines.append(f"        {self._cur_command}")
+            self.handle_command()
+
+
 
         if self._cur_command.startswith("watch"):
             address = eval(self._cur_command[6:])
@@ -969,6 +1017,8 @@ class RemoteControl(threading.Thread):
             b"getmem {X} - Get the value at memory address X\r\n"
             b"setmem {X} {Y} - Set the value at memory address X to Y\r\n"
             b"loadscp {X} - Load the SCP file at X\r\n"
+            b"loadasm {X} - Load the ASM file at X\r\n"
+            b"loadasc {X} - Load the ASC file at X\r\n"
             b"loadimg {X} {Y} - Load the image at X into memory at Y\r\n"
             b"watchimg {X} {Y} {Z} - Watch the image at X of size YxZ\r\n"
             b"unwatchimg {X} - Stop watching the image at X\r\n"
