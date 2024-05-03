@@ -25,15 +25,23 @@ import sys
 import threading
 import time
 import traceback
-import numpy as np
-import shutil
-import pygame
 
+try:
+    import numpy as np
+except ImportError:
+    print("Numpy is not installed, please install it to use the emulator")
+    sys.exit(1)
+
+try:
+    import pygame
+except ImportError:
+    print("Pygame is not installed, please install it to use the screen")
+    sys.exit(1)
 
 class CPU(threading.Thread):
     class memwrap:
         def __init__(self, root):
-            self.__memory = np.zeros(4096, dtype=np.uint16)
+            self._memory = np.zeros(4096, dtype=np.uint16)
             self.mem_change_hook = None
             self.__root = root
 
@@ -44,7 +52,7 @@ class CPU(threading.Thread):
                 )
                 self.__root.debug = True
 
-            return self.__memory[key]
+            return self._memory[key]
 
         def __setitem__(self, key, value):
             if key == self.__root.debug_port:
@@ -56,10 +64,10 @@ class CPU(threading.Thread):
             if self.mem_change_hook:
                 self.mem_change_hook(key, value)
 
-            self.__memory[key] = value
+            self._memory[key] = value
 
         def clear(self):
-            self.__memory = np.zeros(4096, dtype=np.uint16)
+            self._memory = np.zeros(4096, dtype=np.uint16)
 
     def __init__(self):
         super().__init__()
@@ -526,7 +534,7 @@ class PygameScreen:
         for y in range(size[1]):
             for x in range(size[0]):
                 # horrible but avoids trigering the debug mode
-                value = self._cpu._memory._memwrap__memory[address + y * size[0] + x]
+                value = self._cpu._memory._memory[address + y * size[0] + x]
                 r = (value >> 11) << 3
                 g = ((value >> 5) & 0x3F) << 2
                 b = (value & 0x1F) << 3
@@ -776,6 +784,30 @@ class RemoteControl(threading.Thread):
             self._cur_command = ""
             return
 
+        if self._cur_command.startswith("dumpimg"):
+            address, width, height, path = self._cur_command[7:].strip().split(" ")
+            path = pathlib.Path(path).resolve()
+            address, width, height = eval(address), eval(width), eval(height)
+
+            out = f"P3\n# CREATOR: SCPUAS image dump\n{width} {height}\n255\n"
+
+            for y in range(height):
+                for x in range(width):
+                    value = self._cpu._memory._memory[address + (y * width) + x]
+                    r = (value >> 11) << 3
+                    g = ((value >> 5) & 0x3F) << 2
+                    b = (value & 0x1F) << 3
+
+                    out += f"{r}\n{g}\n{b}\n"
+
+            with open(path, "w") as f:
+                f.write(out)
+
+            self._lines.append(f"Dumped image at {address} {width}x{height} to {path}")
+            self._last_command = self._cur_command
+            self._cur_command = ""
+            return
+
         if self._cur_command.startswith("watchimg"):
             address, x, y = self._cur_command[8:].strip().split(" ")
 
@@ -1020,6 +1052,7 @@ class RemoteControl(threading.Thread):
             b"loadasm {X} - Load the ASM file at X\r\n"
             b"loadasc {X} - Load the ASC file at X\r\n"
             b"loadimg {X} {Y} - Load the image at X into memory at Y\r\n"
+            b"dumpimg {X} {Y} {Z} {W} - Dump the image at X of size YxZ to W\r\n"
             b"watchimg {X} {Y} {Z} - Watch the image at X of size YxZ\r\n"
             b"unwatchimg {X} - Stop watching the image at X\r\n"
             b"clearmem - Clear the memory\r\n"
