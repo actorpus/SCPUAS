@@ -325,6 +325,18 @@ def to_swap(padding, instruction, args, *, rtl=None):
             return rtl.count("\n") + 1
         sym = "^"
 
+    if '>>' in right:
+        extra, right = right.split(" >> ")
+        if extra != left:
+            return rtl.count("\n") + 1
+        sym = ">"
+
+    if '<<' in right:
+        extra, right = right.split(" << ")
+        if extra != left:
+            return rtl.count("\n") + 1
+        sym = "<"
+
     mem = ""
 
     if left.startswith("M["):

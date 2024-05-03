@@ -405,7 +405,7 @@ class _rol:
     RTL                :    RX <- ( RX(14:0) || RX(15) )
     Flags set          :    Z,C,O,P,N
     """
-    __rtl__ = "{0} <- ( {0}(14:0) || {0}(15) )"
+    __rtl__ = "{0} <- {0} << 1 "
 
     rsd = REGISTER | REQUIRED
 
@@ -425,7 +425,7 @@ class _ror:
     RTL                :    RX <- ( RX(0) || RX(15:1) )
     Flags set          :    Z,C,O,P,N
     """
-    __rtl__ = "{0} <- ( {0}(0) || {0}(15:1) )"
+    __rtl__ = "{0} <- {0} >> 1"
 
     rsd = REGISTER | REQUIRED
 
