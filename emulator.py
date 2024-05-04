@@ -38,6 +38,7 @@ except ImportError:
     print("Pygame is not installed, please install it to use the screen")
     sys.exit(1)
 
+
 class CPU(threading.Thread):
     class memwrap:
         def __init__(self, root):
@@ -103,8 +104,12 @@ class CPU(threading.Thread):
     def self_loop(self):
         self.enabled = False
 
-        self.__rc._lines.append(f"\033[31mWarn\033[0m Processor entered self loop, disabling.")
-        self.__rc._lines.append(f"     Total instructions executed: {self._total_instructions}")
+        self.__rc._lines.append(
+            f"\033[31mWarn\033[0m Processor entered self loop, disabling."
+        )
+        self.__rc._lines.append(
+            f"     Total instructions executed: {self._total_instructions}"
+        )
 
     def load_memory(self, at, memory):
         for i, c in enumerate(memory):
@@ -169,20 +174,20 @@ class CPU(threading.Thread):
 
     def _LOAD(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
         self._registers[0] = self._memory[value]
 
     def _STORE(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         self._memory[value] = self._registers[0]
 
     def _ADDM(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         value = self._memory[value]
@@ -200,7 +205,7 @@ class CPU(threading.Thread):
 
     def _SUBM(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         value = self._memory[value]
@@ -218,7 +223,7 @@ class CPU(threading.Thread):
 
     def _JUMPU(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         if self._pc - 1 == value:
@@ -228,7 +233,7 @@ class CPU(threading.Thread):
 
     def _JUMPZ(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         if self._pc - 1 == value:
@@ -239,7 +244,7 @@ class CPU(threading.Thread):
 
     def _JUMPNZ(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         if self._pc - 1 == value:
@@ -250,7 +255,7 @@ class CPU(threading.Thread):
 
     def _JUMPC(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         if self._pc - 1 == value:
@@ -264,7 +269,7 @@ class CPU(threading.Thread):
         self.__stack_pointer += 1
 
         value = (
-                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         self._pc = value
@@ -304,7 +309,7 @@ class CPU(threading.Thread):
         self.__flags_overflow = self._registers[dest] & 0x8000
 
         self._registers[dest] = (self._registers[dest] << 1) | (
-                self._registers[src] >> 15
+            self._registers[dest] >> 15
         )
 
         self.__flags_zero = self._registers[dest] == 0
@@ -313,49 +318,52 @@ class CPU(threading.Thread):
         self.__flags_positive = not self.__flags_negative
 
     def _ROR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        dest = ir11 << 1 | ir10
-        src = ir09 << 1 | ir08
-
-        self.__flags_overflow = self._registers[dest] & 0x0001
-
-        self._registers[dest] = (self._registers[dest] >> 1) | (
-                self._registers[src] << 15
-        )
-
-        self.__flags_zero = self._registers[dest] == 0
-        self.__flags_carry = False
-        self.__flags_negative = self._registers[dest] & 0x8000
-        self.__flags_positive = not self.__flags_negative
+        raise NotImplementedError
+        # dest = ir11 << 1 | ir10
+        # src = ir09 << 1 | ir08
+        #
+        # self.__flags_overflow = self._registers[dest] & 0x0001
+        #
+        # self._registers[dest] = (self._registers[dest] >> 1) | (
+        #     self._registers[dest] << 15
+        # )
+        #
+        # self.__flags_zero = self._registers[dest] == 0
+        # self.__flags_carry = False
+        # self.__flags_negative = self._registers[dest] & 0x8000
+        # self.__flags_positive = not self.__flags_negative
 
     def _ADDR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        dest = ir11 << 1 | ir10
-        src = ir09 << 1 | ir08
-
-        self.__flags_carry = self._registers[dest] + self._registers[src] > 0xFFFF
-
-        v = int(self._registers[dest]) + int(self._registers[src])
-
-        self.__flags_zero = v == 0
-        self.__flags_overflow = v > 0xFFFF
-        self.__flags_negative = v & 0x8000
-        self.__flags_positive = not self.__flags_negative
-
-        self._registers[dest] = v & 0xFFFF
+        raise NotImplementedError
+        # dest = ir11 << 1 | ir10
+        # src = ir09 << 1 | ir08
+        #
+        # self.__flags_carry = self._registers[dest] + self._registers[src] > 0xFFFF
+        #
+        # v = int(self._registers[dest]) + int(self._registers[src])
+        #
+        # self.__flags_zero = v == 0
+        # self.__flags_overflow = v > 0xFFFF
+        # self.__flags_negative = v & 0x8000
+        # self.__flags_positive = not self.__flags_negative
+        #
+        # self._registers[dest] = v & 0xFFFF
 
     def _SUBR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        dest = ir11 << 1 | ir10
-        src = ir09 << 1 | ir08
-
-        self.__flags_carry = self._registers[dest] < self._registers[src]
-
-        v = int(self._registers[dest]) - int(self._registers[src])
-
-        self.__flags_zero = v == 0
-        self.__flags_overflow = v > 0xFFFF
-        self.__flags_negative = v & 0x8000
-        self.__flags_positive = not self.__flags_negative
-
-        self._registers[dest] = v & 0xFFFF
+        raise NotImplementedError
+        # dest = ir11 << 1 | ir10
+        # src = ir09 << 1 | ir08
+        #
+        # self.__flags_carry = self._registers[dest] < self._registers[src]
+        #
+        # v = int(self._registers[dest]) - int(self._registers[src])
+        #
+        # self.__flags_zero = v == 0
+        # self.__flags_overflow = v > 0xFFFF
+        # self.__flags_negative = v & 0x8000
+        # self.__flags_positive = not self.__flags_negative
+        #
+        # self._registers[dest] = v & 0xFFFF
 
     def _ANDR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         raise NotImplementedError
@@ -527,7 +535,7 @@ class PygameScreen:
         print(f"[PS] Stopped watching image at {address}")
 
     def load_image(
-            self, address, size: tuple[int, int], fsize: tuple[int, int]
+        self, address, size: tuple[int, int], fsize: tuple[int, int]
     ) -> pygame.surface:
         surf = pygame.Surface(size)
 
@@ -562,7 +570,8 @@ class PygameScreen:
                     1,
                 )
                 self._display.blit(
-                    self.load_image(address, size, (128, 128)), ((i * (128 + 8)) + 16, 16)
+                    self.load_image(address, size, (128, 128)),
+                    ((i * (128 + 8)) + 16, 16),
                 )
                 sur = self._font.render(f"0x{address:03x}", True, (255, 255, 255))
                 self._display.blit(
@@ -661,12 +670,12 @@ class RemoteControl(threading.Thread):
     def render(self):
         # Clear screen, reset cursor, reset colors, underline
         out = (
-                "\033[2J\033[H\033[0m\033[4m Remote Control \033[0m"
-                + " " * (self._screen_size[0] - 16 - 4)
-                + "I003\r\n"
+            "\033[2J\033[H\033[0m\033[4m Remote Control \033[0m"
+            + " " * (self._screen_size[0] - 16 - 4)
+            + "I003\r\n"
         )
 
-        lines = self._lines[-(self._screen_size[1] - 3):]
+        lines = self._lines[-(self._screen_size[1] - 3) :]
 
         for line in lines:
             out += line + "\r\n"
@@ -676,10 +685,10 @@ class RemoteControl(threading.Thread):
         out += "\r\n:"
         out += self._cur_command
         out += " " * (
-                self._screen_size[0]
-                - len(self._cur_command)
-                - len(self._cpu._running_at)
-                - 1
+            self._screen_size[0]
+            - len(self._cur_command)
+            - len(self._cpu._running_at)
+            - 1
         )
         out += self._cpu._running_at
         # move cursor back to input
@@ -719,7 +728,9 @@ class RemoteControl(threading.Thread):
             return
 
         if self._cur_command == "gettotalinst":
-            self._lines.append(f"Total instructions executed: {self._cpu._total_instructions}")
+            self._lines.append(
+                f"Total instructions executed: {self._cpu._total_instructions}"
+            )
             self._last_command = self._cur_command
             self._cur_command = ""
             return
@@ -885,6 +896,7 @@ class RemoteControl(threading.Thread):
             asm_path = pathlib.Path(asm_path).resolve()
             python_executable_path = pathlib.Path(sys.executable).resolve()
             output_path = pathlib.Path("tmp/output").resolve()
+            simpleCPU_as_path = pathlib.Path("bin/simpleCPUv1d_as.py").resolve()
 
             if asm_path.exists() is False:
                 self._lines.append(f"File at {asm_path} does not exist")
@@ -897,7 +909,7 @@ class RemoteControl(threading.Thread):
                 os.remove("tmp/output.asc")
 
             os.system(
-                rf"{python_executable_path} bin\simpleCPUv1d_as.py -i {asm_path} -o {output_path}"
+                rf"{python_executable_path} {simpleCPU_as_path} -i {asm_path} -o {output_path}"
             )
 
             if not os.path.exists("tmp/output.asc"):
@@ -908,8 +920,6 @@ class RemoteControl(threading.Thread):
             self._cur_command = f"loadasc tmp/output.asc"
             self._lines.append(f"        {self._cur_command}")
             self.handle_command()
-
-
 
         if self._cur_command.startswith("watch"):
             address = eval(self._cur_command[6:])
