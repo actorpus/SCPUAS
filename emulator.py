@@ -326,6 +326,7 @@ class CPU(threading.Thread):
         #
         # self._registers[dest] = (self._registers[dest] >> 1) | (
         #     self._registers[dest] << 15
+        #         self._registers[src] << 15
         # )
         #
         # self.__flags_zero = self._registers[dest] == 0
