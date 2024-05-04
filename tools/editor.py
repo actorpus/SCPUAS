@@ -61,6 +61,9 @@ class File:
 
         self.write_count = 0
 
+        self.pointer = [0, 0]
+        self.render_pointer = 0
+
     def read(self):
         return self.contents
 
@@ -87,8 +90,6 @@ class Editor:
         self._current_command = ""
         self._command_cursor = 0
 
-        self._file_pointer = [0, 0]
-
     def render_partial_file(self, width, height):
         contents = self._file.read()
         lines = contents.split("\n")
@@ -97,13 +98,12 @@ class Editor:
         #       navigating the file, it should be more dynamic to
         #       not constantly be jumping around.
 
-        start = max(0, self._file_pointer[0] - height // 4)
+        start = max(0, self._file.pointer[0] - height // 4)
 
         end = min(len(lines), start + (height // 2))
 
         lines = lines[start:end]
         olines = []
-
 
         for i, l in enumerate(lines):
             olines.append(
@@ -117,7 +117,7 @@ class Editor:
         for _ in range(height - len(olines)):
             olines.append(f"{ansii_color_background(*CODE_BACKGROUND)}{ansii_color_foreground(*DARK_TEXT_COLOR)}     │ ")
 
-        cursor = (self._file_pointer[0] - start) * 2, self._file_pointer[1] + 7
+        cursor = (self._file.pointer[0] - start) * 2, self._file.pointer[1] + 7
 
         return olines, cursor
 
@@ -125,80 +125,80 @@ class Editor:
         lines = self._file.read().split("\n")
 
         if left:
-            self._file_pointer[1] -= left
-            if self._file_pointer[1] < 0:
+            self._file.pointer[1] -= left
+            if self._file.pointer[1] < 0:
                 self.file_navigate(up=1)
-                self._file_pointer[1] = len(lines[self._file_pointer[0]])
+                self._file.pointer[1] = len(lines[self._file.pointer[0]])
 
         elif right:
-            self._file_pointer[1] += right
-            if self._file_pointer[1] > len(lines[self._file_pointer[0]]):
-                self._file_pointer[1] = 0
+            self._file.pointer[1] += right
+            if self._file.pointer[1] > len(lines[self._file.pointer[0]]):
+                self._file.pointer[1] = 0
                 self.file_navigate(down=1)
 
         elif up:
-            self._file_pointer[0] -= up
+            self._file.pointer[0] -= up
 
-            if self._file_pointer[0] < 0:
-                self._file_pointer[0] = 0
-                self._file_pointer[1] = 0
+            if self._file.pointer[0] < 0:
+                self._file.pointer[0] = 0
+                self._file.pointer[1] = 0
 
-            if self._file_pointer[1] >= len(lines[self._file_pointer[0]]):
-                self._file_pointer[1] = len(lines[self._file_pointer[0]])
+            if self._file.pointer[1] >= len(lines[self._file.pointer[0]]):
+                self._file.pointer[1] = len(lines[self._file.pointer[0]])
 
         elif down:
-            self._file_pointer[0] += down
+            self._file.pointer[0] += down
 
-            if self._file_pointer[0] >= len(lines):
-                self._file_pointer[0] = len(lines) - 1
-                self._file_pointer[1] = len(lines[self._file_pointer[0]])
+            if self._file.pointer[0] >= len(lines):
+                self._file.pointer[0] = len(lines) - 1
+                self._file.pointer[1] = len(lines[self._file.pointer[0]])
 
-            if self._file_pointer[1] >= len(lines[self._file_pointer[0]]):
-                self._file_pointer[1] = len(lines[self._file_pointer[0]])
+            if self._file.pointer[1] >= len(lines[self._file.pointer[0]]):
+                self._file.pointer[1] = len(lines[self._file.pointer[0]])
 
     def file_insert(self, char):
         lines = self._file.read().split("\n")
 
-        lines[self._file_pointer[0]] = lines[self._file_pointer[0]][:self._file_pointer[1]] + char + lines[self._file_pointer[0]][self._file_pointer[1]:]
-        self._file_pointer[1] += 1
+        lines[self._file.pointer[0]] = lines[self._file.pointer[0]][:self._file.pointer[1]] + char + lines[self._file.pointer[0]][self._file.pointer[1]:]
+        self._file.pointer[1] += 1
 
         self._file.write("\n".join(lines))
 
     def file_delete(self):
         lines = self._file.read().split("\n")
 
-        if self._file_pointer[1] == 0:
-            if self._file_pointer[0] == 0:
+        if self._file.pointer[1] == 0:
+            if self._file.pointer[0] == 0:
                 return
 
-            self._file_pointer[0] -= 1
-            self._file_pointer[1] = len(lines[self._file_pointer[0]])
-            lines[self._file_pointer[0]] += lines.pop(self._file_pointer[0] + 1)
+            self._file.pointer[0] -= 1
+            self._file.pointer[1] = len(lines[self._file.pointer[0]])
+            lines[self._file.pointer[0]] += lines.pop(self._file.pointer[0] + 1)
 
         else:
-            lines[self._file_pointer[0]] = lines[self._file_pointer[0]][:self._file_pointer[1] - 1] + lines[self._file_pointer[0]][self._file_pointer[1]:]
-            self._file_pointer[1] -= 1
+            lines[self._file.pointer[0]] = lines[self._file.pointer[0]][:self._file.pointer[1] - 1] + lines[self._file.pointer[0]][self._file.pointer[1]:]
+            self._file.pointer[1] -= 1
 
         self._file.write("\n".join(lines))
 
     def file_newline(self):
         lines = self._file.read().split("\n")
 
-        lines.insert(self._file_pointer[0] + 1, lines[self._file_pointer[0]][self._file_pointer[1]:])
-        lines[self._file_pointer[0]] = lines[self._file_pointer[0]][:self._file_pointer[1]]
+        lines.insert(self._file.pointer[0] + 1, lines[self._file.pointer[0]][self._file.pointer[1]:])
+        lines[self._file.pointer[0]] = lines[self._file.pointer[0]][:self._file.pointer[1]]
 
-        self._file_pointer[0] += 1
-        self._file_pointer[1] = 0
+        self._file.pointer[0] += 1
+        self._file.pointer[1] = 0
 
         self._file.write("\n".join(lines))
 
     def render(self):
         width, height = os.get_terminal_size()
 
-        if width < 80 or height < 24:
+        if width < 100 or height < 24:
             print("Terminal too small, please resize.")
-            print("Minimum size: 80x24")
-            sys.exit(1)
+            print("Minimum size: 100x24")
+            return 
 
         final_lines = []
 
@@ -208,9 +208,12 @@ class Editor:
                 line + " " * (width - len(line) - 5) + "I001 \033[0m")
         final_lines.append(line)
 
-        pfile, pcursor = self.render_partial_file(width, height - len(final_lines) - (1 if self._command_mode else 0))
+        partial_file_width = width - 40
 
-        final_lines += pfile
+        pfile, pcursor = self.render_partial_file(partial_file_width, height - len(final_lines) - (1 if self._command_mode else 0))
+        pfile = [_ + " " * (partial_file_width - ansii_length(_)) for _ in pfile]
+
+        final_lines += [_ + "\033[0m║" for _ in pfile]
 
         if self._command_mode:
             line = (ansii_color_background(*UI_BACKGROUND) +
@@ -234,6 +237,12 @@ class Editor:
     def handle_command(self):
         if self._current_command == "wq" or self._current_command == "q":
             self._running = False
+
+        if self._current_command == "w":
+            self._file.save()
+
+        if self._current_command == ":":
+            self.file_insert(":")
 
         self._command_mode = False
         self._current_command = ""
@@ -309,7 +318,11 @@ class Editor:
                 self.file_insert(" ")
 
         elif char == b':':
-            self._command_mode = True
+            if self._command_mode:
+                self._current_command = self._current_command[:self._command_cursor] + ":" + self._current_command[self._command_cursor:]
+                self._command_cursor += 1
+            else:
+                self._command_mode = True
 
         elif char[0] in range(32, 127):
             if self._command_mode:
