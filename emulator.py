@@ -313,19 +313,20 @@ class CPU(threading.Thread):
         self.__flags_positive = not self.__flags_negative
 
     def _ROR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        dest = ir11 << 1 | ir10
-        src = ir09 << 1 | ir08
-
-        self.__flags_overflow = self._registers[dest] & 0x0001
-
-        self._registers[dest] = (self._registers[dest] >> 1) | (
-                self._registers[src] << 15
-        )
-
-        self.__flags_zero = self._registers[dest] == 0
-        self.__flags_carry = False
-        self.__flags_negative = self._registers[dest] & 0x8000
-        self.__flags_positive = not self.__flags_negative
+        raise NotImplementedError
+        # dest = ir11 << 1 | ir10
+        # src = ir09 << 1 | ir08
+        #
+        # self.__flags_overflow = self._registers[dest] & 0x0001
+        #
+        # self._registers[dest] = (self._registers[dest] >> 1) | (
+        #         self._registers[src] << 15
+        # )
+        #
+        # self.__flags_zero = self._registers[dest] == 0
+        # self.__flags_carry = False
+        # self.__flags_negative = self._registers[dest] & 0x8000
+        # self.__flags_positive = not self.__flags_negative
 
     def _ADDR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10

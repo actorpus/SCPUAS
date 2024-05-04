@@ -454,7 +454,7 @@ def main(watching):
                     for _i, arg in enumerate(reversed(args)):
                         print_line = print_line.replace(arg[1], arg[0], 1)
 
-                    if i == 4:
+                    if i == 9:
                         output += f"\033[1;31m{i + line_i - 3:03} \033[0;31m│ \033[97m{print_line}{' ' * (42 - len(part_line))} \033[31m│\033[0m {rtl[0]}\n"
 
                         for rtl_line in rtl[1:]:
