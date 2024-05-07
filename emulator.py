@@ -275,10 +275,10 @@ class CPU(threading.Thread):
         self._pc = value
 
     def _OR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        raise NotImplementedError
+        raise NotImplementedError("OR")
 
     def _XOP1(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        raise NotImplementedError
+        raise NotImplementedError("XOP1")
 
     def _RET(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         self.__stack_pointer -= 1
@@ -318,7 +318,7 @@ class CPU(threading.Thread):
         self.__flags_positive = not self.__flags_negative
 
     def _ROR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        raise NotImplementedError
+        raise NotImplementedError("ROR")
         # dest = ir11 << 1 | ir10
         # src = ir09 << 1 | ir08
         #
@@ -335,7 +335,7 @@ class CPU(threading.Thread):
         # self.__flags_positive = not self.__flags_negative
 
     def _ADDR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        raise NotImplementedError
+        raise NotImplementedError("ADDR")
         # dest = ir11 << 1 | ir10
         # src = ir09 << 1 | ir08
         #
@@ -351,7 +351,7 @@ class CPU(threading.Thread):
         # self._registers[dest] = v & 0xFFFF
 
     def _SUBR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        raise NotImplementedError
+        raise NotImplementedError("SUBR")
         # dest = ir11 << 1 | ir10
         # src = ir09 << 1 | ir08
         #
@@ -367,10 +367,10 @@ class CPU(threading.Thread):
         # self._registers[dest] = v & 0xFFFF
 
     def _ANDR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        raise NotImplementedError
+        raise NotImplementedError("ANDR")
 
     def _ORR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        raise NotImplementedError
+        raise NotImplementedError("ORR")
 
     def _XORR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         dest = ir11 << 1 | ir10
@@ -387,19 +387,19 @@ class CPU(threading.Thread):
         self._registers[dest] = v & 0xFFFF
 
     def _ASLR(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
-        raise NotImplementedError
+        raise NotImplementedError("ASLR")
 
     def _XOP2(self, ir11, ir10, ir09, ir08, ir08ir04, ir03ir00):
-        raise NotImplementedError
+        raise NotImplementedError("XOP2")
 
     def _XOP3(self, ir11, ir10, ir09, ir08, ir08ir04, ir03ir00):
-        raise NotImplementedError
+        raise NotImplementedError("XOP3")
 
     def _XOP4(self, ir11, ir10, ir09, ir08, ir08ir04, ir03ir00):
-        raise NotImplementedError
+        raise NotImplementedError("XOP4")
 
     def _XOP5(self, ir11, ir10, ir09, ir08, ir08ir04, ir03ir00):
-        raise NotImplementedError
+        raise NotImplementedError("XOP5")
 
     def _decode_instruction_rel_func(self, ir):
         ir15ir12 = ir >> 12
@@ -472,7 +472,16 @@ class CPU(threading.Thread):
             print(f"Executed: {self._current_instruction_rel_func.__name__}")
 
     def run(self):
-        self._run()
+        try:
+            self._run()
+        except NotImplementedError as e:
+            print(f"[CPU] Unimplemented instruction")
+            self.running = False
+
+            self.__rc._lines.append(
+                f"\033[31mError\033[0m Unimplemented instruction, {e}, program failed to run"
+            )
+
 
     def _run(self):
         i, t = 0, time.time()
@@ -860,7 +869,7 @@ class RemoteControl(threading.Thread):
 
             self._cpu.load_memory(memory_start, code)
 
-            self._lines.append(f"Loaded ASC at {memory_start:03x}")
+            self._lines.append(f"Loaded ASC at {memory_start:03x}, total instructions: {len(code)}")
             self._last_command = self._cur_command
             self._cur_command = ""
             return
