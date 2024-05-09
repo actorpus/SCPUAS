@@ -471,7 +471,7 @@ def main(watching):
                     for rtl_line in rtl[1:]:
                         output += "    │                                          │ " + rtl_line + "\n"
 
-                output = "\n".join([f"{_}{' ' * (70 - ansii_length(_))} ║ " for _ in output.split("\n")])
+                output = "\n".join([f"{_}{' ' * (100 - ansii_length(_))} ║ " for _ in output.split("\n")])
 
                 try:
                     swaps = []

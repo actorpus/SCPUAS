@@ -527,7 +527,7 @@ class PygameScreen:
     def __init__(self, cpu_ref: CPU):
         pygame.font.init()
 
-        self._display = pygame.display.set_mode((800, 600), pygame.RESIZABLE)
+        self._display = pygame.display.set_mode((430, 170), pygame.RESIZABLE)
         self._clock = pygame.time.Clock()
         self._running = True
 
