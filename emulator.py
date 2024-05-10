@@ -70,7 +70,7 @@ class CPU(threading.Thread):
         def clear(self):
             self._memory = np.zeros(4096, dtype=np.uint16)
 
-    def __init__(self):
+    def __init__(self, speed):
         super().__init__()
 
         self._memory = self.memwrap(self)
@@ -95,6 +95,7 @@ class CPU(threading.Thread):
         self.running = True
         self.debug = False
         self.debug_port = -1
+        self.htz = 0 if speed == 0 else 1 / speed
 
         self.__rc = None
 
@@ -174,20 +175,20 @@ class CPU(threading.Thread):
 
     def _LOAD(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
         self._registers[0] = self._memory[value]
 
     def _STORE(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         self._memory[value] = self._registers[0]
 
     def _ADDM(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         value = self._memory[value]
@@ -205,7 +206,7 @@ class CPU(threading.Thread):
 
     def _SUBM(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         value = self._memory[value]
@@ -223,7 +224,7 @@ class CPU(threading.Thread):
 
     def _JUMPU(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         if self._pc - 1 == value:
@@ -233,7 +234,7 @@ class CPU(threading.Thread):
 
     def _JUMPZ(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         if self._pc - 1 == value:
@@ -244,7 +245,7 @@ class CPU(threading.Thread):
 
     def _JUMPNZ(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         if self._pc - 1 == value:
@@ -255,7 +256,7 @@ class CPU(threading.Thread):
 
     def _JUMPC(self, ir11, ir10, ir09, ir08, ir07ir04, ir03ir00):
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         if self._pc - 1 == value:
@@ -269,7 +270,7 @@ class CPU(threading.Thread):
         self.__stack_pointer += 1
 
         value = (
-            ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
+                ir11 << 11 | ir10 << 10 | ir09 << 9 | ir08 << 8 | ir07ir04 << 4 | ir03ir00
         )
 
         self._pc = value
@@ -309,7 +310,7 @@ class CPU(threading.Thread):
         self.__flags_overflow = self._registers[dest] & 0x8000
 
         self._registers[dest] = (self._registers[dest] << 1) | (
-            self._registers[dest] >> 15
+                self._registers[dest] >> 15
         )
 
         self.__flags_zero = self._registers[dest] == 0
@@ -482,7 +483,6 @@ class CPU(threading.Thread):
                 f"\033[31mError\033[0m Unimplemented instruction, {e}, program failed to run"
             )
 
-
     def _run(self):
         i, t = 0, time.time()
 
@@ -512,11 +512,14 @@ class CPU(threading.Thread):
                 print()
                 time.sleep(1)
 
+            if self.htz:
+                time.sleep(self.htz)
+
             i += 1
-            if i == 100000:
+            if i == 10000:
                 c = time.time()
                 r = c - t
-                s = r / 100000
+                s = r / 10000
                 self._running_at = f"{1 / s / 1000:.2f} kHz"
                 i, t = 0, c
 
@@ -545,7 +548,7 @@ class PygameScreen:
         print(f"[PS] Stopped watching image at {address}")
 
     def load_image(
-        self, address, size: tuple[int, int], fsize: tuple[int, int]
+            self, address, size: tuple[int, int], fsize: tuple[int, int]
     ) -> pygame.surface:
         surf = pygame.Surface(size)
 
@@ -680,12 +683,12 @@ class RemoteControl(threading.Thread):
     def render(self):
         # Clear screen, reset cursor, reset colors, underline
         out = (
-            "\033[2J\033[H\033[0m\033[4m Remote Control \033[0m"
-            + " " * (self._screen_size[0] - 16 - 4)
-            + "I003\r\n"
+                "\033[2J\033[H\033[0m\033[4m Remote Control \033[0m"
+                + " " * (self._screen_size[0] - 16 - 4)
+                + "I003\r\n"
         )
 
-        lines = self._lines[-(self._screen_size[1] - 3) :]
+        lines = self._lines[-(self._screen_size[1] - 3):]
 
         for line in lines:
             out += line + "\r\n"
@@ -695,10 +698,10 @@ class RemoteControl(threading.Thread):
         out += "\r\n:"
         out += self._cur_command
         out += " " * (
-            self._screen_size[0]
-            - len(self._cur_command)
-            - len(self._cpu._running_at)
-            - 1
+                self._screen_size[0]
+                - len(self._cur_command)
+                - len(self._cpu._running_at)
+                - 1
         )
         out += self._cpu._running_at
         # move cursor back to input
@@ -1142,14 +1145,20 @@ if __name__ == "__main__":
     with open(command_file, encoding="utf-8") as file:
         data = file.read()
         json_data = json.loads(data)
+
         if "defaults" in json_data:
             commands = json_data["defaults"]
         else:
-            print("JSON file needs a 'default' key with the instuctions there")
-            raise SystemExit
+            raise SystemExit("JSON file needs a 'default' key, see examples/example_settings.json, "
+                             "this can be an empty list.")
+
+        if "tickspeed" in json_data:
+            tickspeed = json_data["tickspeed"]
+        else:
+            raise SystemExit("JSON file needs a 'tickspeed' key, see examples/example_settings.json")
 
     # Start everything else
-    cpu = CPU()
+    cpu = CPU(tickspeed)
     screen = PygameScreen(cpu)
 
     os.system(r"start putty -load rawtoscpu")

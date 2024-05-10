@@ -3,5 +3,6 @@
     "loadscp .\\code.scp",
     "loadimg .\\examples\\image.ppm 1024",
     "watchimg 0x400 24 24"
-  ]
+  ],
+  "tickspeed": 0
 }
