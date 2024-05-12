@@ -147,12 +147,11 @@ class CPU(threading.Thread):
         dest = ir11 << 1 | ir10
         value = ir07ir04 << 4 | ir03ir00
 
-        self.__flags_carry = self._registers[dest] < value
-
         v = self._registers[dest] - value
 
+        self.__flags_carry = False
         self.__flags_zero = v == 0
-        self.__flags_overflow = v > 0xFFFF
+        self.__flags_overflow = v < 0
         self.__flags_negative = v & 0x8000
         self.__flags_positive = not self.__flags_negative
 
