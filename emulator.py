@@ -210,12 +210,12 @@ class CPU(threading.Thread):
 
         value = self._memory[value]
 
-        self.__flags_carry = self._registers[0] < value
 
         v = self._registers[0] - value
 
+        self.__flags_carry = False
         self.__flags_zero = v == 0
-        self.__flags_overflow = v > 0xFFFF
+        self.__flags_overflow = v < 0xFFFF
         self.__flags_negative = v & 0x8000
         self.__flags_positive = not self.__flags_negative
 
